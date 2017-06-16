@@ -1,6 +1,6 @@
-# Python 数据科学 入门教程
+# Python 数据科学入门教程
 
-> 来源：[Introduction to Matplotlib and basic line](https://pythonprogramming.net/data-analysis-tutorials/)
+> 来源：[Data Analysis](https://pythonprogramming.net/data-analysis-tutorials/)
 
 > 译者：[飞龙](https://github.com/)
 
