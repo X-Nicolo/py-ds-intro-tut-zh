@@ -648,7 +648,7 @@ FMAC/HPI_WY
 
 我们已经得到了指标，现在我们已经准备好提取数据帧了。 但是，一旦我们拿到他们，我们会做什么？ 我们将使用 50 个独立的数据帧？ 听起来像一个愚蠢的想法，我们需要一些方法来组合他们。 Pandas 背后的优秀人才看到了这一点，并为我们提供了多种组合数据帧的方法。 我们将在下一个教程中讨论这个问题。
 
-## 五、连接和附加数据帧
+## 五、连接（concat）和附加数据帧
 
 欢迎阅读 Python 和 Pandas 数据分析系列教程第五部分。在本教程中，我们将介绍如何以各种方式组合数据帧。
 
@@ -769,3 +769,347 @@ print(df4)
 在附加序列时，我们必须忽略索引，因为这是规则，除非序列拥有名称。
 
 在这里，我们已经介绍了 Pandas 中的连接（concat）和附加数据帧。 接下来，我们将讨论如何连接（join）和合并数据帧。
+
+## 六、连接（join）和合并数据帧
+
+欢迎阅读 Python 和 Pandas 数据分析系列教程的第六部分。 在这一部分种，我们将讨论连接（join）和合并数据帧，作为组合数据框的另一种方法。 在前面的教程中，我们介绍了连接（concat）和附加。
+
+首先，我们将从以前的一些示例数据帧开始，带有一点更改：
+
+```py
+import pandas as pd
+
+df1 = pd.DataFrame({'HPI':[80,85,88,85],
+                    'Int_rate':[2, 3, 2, 2],
+                    'US_GDP_Thousands':[50, 55, 65, 55]},
+                   index = [2001, 2002, 2003, 2004])
+
+df2 = pd.DataFrame({'HPI':[80,85,88,85],
+                    'Int_rate':[2, 3, 2, 2],
+                    'US_GDP_Thousands':[50, 55, 65, 55]},
+                   index = [2005, 2006, 2007, 2008])
+
+df3 = pd.DataFrame({'HPI':[80,85,88,85],
+                    'Unemployment':[7, 8, 9, 6],
+                    'Low_tier_HPI':[50, 52, 50, 53]},
+                   index = [2001, 2002, 2003, 2004])
+```
+
+唯一的变化是`df3`，我们把`Int_rate`变成了`unemployment`。 首先，我们来讨论合并。
+
+```py
+print(pd.merge(df1,df3, on='HPI'))
+
+   HPI  Int_rate  US_GDP_Thousands  Low_tier_HPI  Unemployment
+0   80         2                50            50             7
+1   85         3                55            52             8
+2   85         3                55            53             6
+3   85         2                55            52             8
+4   85         2                55            53             6
+5   88         2                65            50             9
+```
+
+所以，在这里，我们看到了一个共有列（`HPI`）。 你可以共有多个列，这里有一个例子：
+
+```py
+print(pd.merge(df1,df2, on=['HPI','Int_rate']))
+
+   HPI  Int_rate  US_GDP_Thousands_x  US_GDP_Thousands_y
+0   80         2                  50                  50
+1   85         3                  55                  55
+2   88         2                  65                  65
+3   85         2                  55                  55
+```
+
+注意这里有`US_GDP_Thousands`的两个版本。这是因为我们没有共享这些列，所以都保留下来，使用另外一个字母来区分。记得之前我说过，Pandas 是一个很好的模块，与类似 MySQL 的数据库结合。这就是原因。
+
+通常，对于数据库，您希望使其尽可能轻量化，以便在其上运行的查询执行得尽可能快。
+
+假设你运营像`pythonprogramming.net`这样的网站，在那里你有用户，所以你必须跟踪用户名和加密的密码散列，所以这肯定是两列。也许那么你有登录名，用户名，密码，电子邮件和注册日期。所以这已经是基本数据点的五列。如果你有一个论坛，那么也许你有一些东西，像用户设置，帖子。那么也许你希望有像管理员，主持人，普通用户的设置。
+
+列表可以继续。如果你在字面上只有一个巨大的表，这可以工作，但把表分开也可能更好，因为许多操作将更快，更高效。 合并之后，你可能会设置新的索引。像这样的东西：
+
+```py
+df4 = pd.merge(df1,df3, on='HPI')
+df4.set_index('HPI', inplace=True)
+print(df4)
+
+     Int_rate  US_GDP_Thousands  Low_tier_HPI  Unemployment
+HPI                                                        
+80          2                50            50             7
+85          3                55            52             8
+85          3                55            53             6
+85          2                55            52             8
+85          2                55            53             6
+88          2                65            50             9
+```
+
+现在，如果`HPI`已经是索引了呢？ 或者，在我们的情况下，我们可能会按照日期连接，但日期可能是索引。 在这种情况下，我们可能会使用连接（join）。
+
+```py
+df1.set_index('HPI', inplace=True)
+df3.set_index('HPI', inplace=True)
+
+joined = df1.join(df3)
+print(joined)
+
+     Int_rate  US_GDP_Thousands  Low_tier_HPI  Unemployment
+HPI                                                        
+80          2                50            50             7
+85          3                55            52             8
+85          3                55            53             6
+85          2                55            52             8
+85          2                55            53             6
+88          2                65            50             9
+```
+
+现在，我们考虑连接（join）和合并略有不同的索引。 让我们重新定义`df1`和`df3`数据帧，将它们变成：
+
+```py
+df1 = pd.DataFrame({
+                    'Int_rate':[2, 3, 2, 2],
+                    'US_GDP_Thousands':[50, 55, 65, 55],
+                    'Year':[2001, 2002, 2003, 2004]
+                    })
+
+df3 = pd.DataFrame({
+                    'Unemployment':[7, 8, 9, 6],
+                    'Low_tier_HPI':[50, 52, 50, 53],
+                    'Year':[2001, 2003, 2004, 2005]})
+```
+
+这里，我们现在有相似的年份列，但日期不同。 `df3`有 2005 年，但没有 2002 年，`df1`相反。 现在，当我们合并时会发生什么？
+
+```py
+merged = pd.merge(df1,df3, on='Year')
+print(merged)
+
+   Int_rate  US_GDP_Thousands  Year  Low_tier_HPI  Unemployment
+0         2                50  2001            50             7
+1         2                65  2003            52             8
+2         2                55  2004            50             9
+````
+
+现在，更实用一些：
+
+```py
+merged = pd.merge(df1,df3, on='Year')
+merged.set_index('Year', inplace=True)
+print(merged)
+
+      Int_rate  US_GDP_Thousands  Low_tier_HPI  Unemployment
+Year                                                        
+2001         2                50            50             7
+2003         2                65            52             8
+2004         2                55            50             9
+```
+
+注意 2005 年和 2002 年完全失踪了。 合并只会合并现有/共有的数据。 我们能对其做些什么呢？ 事实证明，合并时有一个参数`how`。 此参数表明合并选择，它来自数据库的合并。 你有以下选择：左、右、外部、内部。
+
++   左 - SQL 左外连接 - 仅使用左侧数据帧中的键
++   右 - SQL 右外连接 - 仅使用右侧数据帧中的键
++   外部 - 全外联接 - 使用键的并集
++   内部 - 使用键的交集
+
+```py
+merged = pd.merge(df1,df3, on='Year', how='left')
+merged.set_index('Year', inplace=True)
+print(merged)
+
+      Int_rate  US_GDP_Thousands  Low_tier_HPI  Unemployment
+Year                                                        
+2001         2                50            50             7
+2002         3                55           NaN           NaN
+2003         2                65            52             8
+2004         2                55            50             9
+```
+
+左侧合并实际上在左边的数据帧上。 我们有`df1`，`df3`，左边的是第一个，`df1`。 所以，我们最终得到了一个与左侧数据帧（`df1`）相同的索引。
+
+```py
+merged = pd.merge(df1,df3, on='Year', how='right')
+merged.set_index('Year', inplace=True)
+print(merged)
+
+      Int_rate  US_GDP_Thousands  Low_tier_HPI  Unemployment
+Year                                                        
+2001         2                50            50             7
+2003         2                65            52             8
+2004         2                55            50             9
+2005       NaN               NaN            53             6
+```
+
+我们选择了右侧，所以这次索引来源于右侧（`df3`）。
+
+```py
+merged = pd.merge(df1,df3, on='Year', how='outer')
+merged.set_index('Year', inplace=True)
+print(merged)
+
+      Int_rate  US_GDP_Thousands  Low_tier_HPI  Unemployment
+Year                                                        
+2001         2                50            50             7
+2002         3                55           NaN           NaN
+2003         2                65            52             8
+2004         2                55            50             9
+2005       NaN               NaN            53             6
+```
+
+这次，我们选择了外部，它是键的并集。也就是会展示所有索引。
+
+```py
+merged = pd.merge(df1,df3, on='Year', how='inner')
+merged.set_index('Year', inplace=True)
+print(merged)
+
+      Int_rate  US_GDP_Thousands  Low_tier_HPI  Unemployment
+Year                                                        
+2001         2                50            50             7
+2003         2                65            52             8
+2004         2                55            50             9
+```
+
+最后，“内部”是键的交集，基本上就是所有集合之间共有的东西。 这些都有其自己的逻辑，但是，正如你所看到的，默认选项是“内部”。
+
+现在我们可以检查连接（join），这会按照索引连接，所以我们可以做这样的事情：
+
+```py
+df1.set_index('Year', inplace=True)
+df3.set_index('Year', inplace=True)
+joined = df1.join(df3, how="outer")
+print(joined)
+
+      Int_rate  US_GDP_Thousands  Low_tier_HPI  Unemployment
+Year                                                        
+2001         2                50            50             7
+2002         3                55           NaN           NaN
+2003         2                65            52             8
+2004         2                55            50             9
+2005       NaN               NaN            53             6
+```
+
+好吧，我想我们已经足以涵盖了数据帧的组合。 让我们回到我们的房地产投资，使用我们的新知识，并建立自己的史诗数据集。
+
+## 七、Pickle
+
+欢迎阅读 Python 和 Pandas 数据分析系列教程第七部分。 在最近的几个教程中，我们学习了如何组合数据集。 在本教程中，我们将恢复我们是房地产巨头的假设。 我们希望通过拥有多元化的财富来保护我们的财富，其中一个组成部分就是房地产。 在第 4部分 中，我们建立了以下代码：
+
+```py
+import Quandl
+import pandas as pd
+
+# Not necessary, I just do this so I do not show my API key.
+api_key = open('quandlapikey.txt','r').read()
+fiddy_states = pd.read_html('https://simple.wikipedia.org/wiki/List_of_U.S._states')
+
+for abbv in fiddy_states[0][0][1:]:
+    #print(abbv)
+    print("FMAC/HPI_"+str(abbv))
+```
+
+这个代码用来获得 50 个州，遍历他们，并产生适当的 Quandl 查询，来按州返回房价指数。 由于我们将在这里生成 50 个数据帧，我们宁愿把它们全部合并成一个。 为此，我们可以使用前面教程中学到的`.join`。 在这种情况下，我们将使用`.join`，因为 Quandl 模块将数据返回给我们，实际索引为`Date`。 通常情况下，你可能不会得到这个，它只是索引为常规数字的数据帧。 在这种情况下，你可以使用连接，`on ='Date'`。
+
+现在，为了运行并收集所有的数据，我们可以做以下的改变：
+
+```py
+import Quandl
+import pandas as pd
+
+# Not necessary, I just do this so I do not show my API key.
+api_key = open('quandlapikey.txt','r').read()
+fiddy_states = pd.read_html('https://simple.wikipedia.org/wiki/List_of_U.S._states')
+
+main_df = pd.DataFrame()
+
+for abbv in fiddy_states[0][0][1:]:
+    query = "FMAC/HPI_"+str(abbv)
+    df = Quandl.get(query, authtoken=api_key)
+
+    if main_df.empty:
+        main_df = df
+    else:
+        main_df = main_df.join(df)
+```
+
+注意：Quandl 已经改变了数据集的返回值，如果返回值只有一列（或者我认为是这样），那么该列的标题就是`value`。那么，这很麻烦，但我们可以解决它。在`for`循环中，将数据帧的列重命名为我们的缩写。如果没有做这个改变，你可能会看到：`ValueError: columns overlap but no suffix specified: Index([u'Value'], dtype='object')`。
+
+太好了，但是每一次你想运行它时，你会发现这个过程可能需要 30 秒到几分钟。这很烦人。现在，你的短期目标是实现它，但接下来呢？我们将继续在此基础上进行研究，每次我们进行测试或者其他东西时，我们都必须忍受这个无意义的东西！因此，我们要保存这些数据。现在，这是一个数据分析和 Pandas 教程。有了 Pandas，我们可以简单地将数据输出到 CSV，或者我们希望的任何数据类型，包括我们要谈论的内容。但是，您可能并不总是可以将数据输出到简单文件。在任何情况下，我们都希望将这些数据保存到一个文件中，所以我们只需要执行一次这个操作，然后我们就可以在它顶上建立。
+
+举个例子来说，就是机器学习。您通常会训练一个分类器，然后您可以立即开始，然后快速使用该分类器进行分类。问题是，分类器不能保存到`.txt`或`.csv`文件。这是一个对象。幸运的是，以编程的方式，有各种各样的东西，用于将二进制数据保存到可以稍后访问的文件。在 Python 中，这被称为 Pickle。你可能知道它是序列化的，或者甚至别的东西。 Python 有一个名为 Pickle 的模块，它将把你的对象转换成一个字节流，或者反过来转换它。这让我们做的是保存任何 Python 对象。那机器学习分类器呢？可以。字典？可以。数据帧？可以！现在，Pandas 在 IO 模块中已经有了 Pickle，但是你真的应该知道如何使用和不使用 Pandas 来实现它，所以让我们这样做吧！
+
+首先，我们来谈谈常规的 Pickle。你可以用你想要的任何 Python 对象来这样做，它不需要是一个数据帧，但我们会用我们的数据帧来实现。
+
+首先，在脚本的顶部导入`pickle`：
+
+```py
+import pickle
+```
+
+下面：
+
+```
+pickle_out = open('fiddy_states.pickle','wb')
+pickle.dump(main_df, pickle_out)
+pickle_out.close()    
+```
+
+首先我们打开一个`.pickle`文件，打算写一些字节。 然后，我们执行`pickle.dump`来转储我们想要保存的数据，之后是转储它的地方（我们刚才打开的文件）。 最后，我们关闭任何文件。 完成了，我们保存了`pickle`。
+
+不过，我希望现在组织这些代码。 我们不希望每次都运行这个代码，但是我们仍然需要时常引用状态列表。 我们来清理一下：
+
+```py
+import Quandl
+import pandas as pd
+import pickle
+
+# Not necessary, I just do this so I do not show my API key.
+api_key = open('quandlapikey.txt','r').read()
+
+def state_list():
+    fiddy_states = pd.read_html('https://simple.wikipedia.org/wiki/List_of_U.S._states')
+    return fiddy_states[0][0][1:]
+    
+
+def grab_initial_state_data():
+    states = state_list()
+
+    main_df = pd.DataFrame()
+
+    for abbv in states:
+        query = "FMAC/HPI_"+str(abbv)
+        df = Quandl.get(query, authtoken=api_key)
+        print(query)
+        if main_df.empty:
+            main_df = df
+        else:
+            main_df = main_df.join(df)
+            
+    pickle_out = open('fiddy_states.pickle','wb')
+    pickle.dump(main_df, pickle_out)
+    pickle_out.close()        
+
+    
+grab_initial_state_data()
+```
+
+现在，我们可以在任何需要状态列表的时候，引用`state_list`，然后我们只需要为`HPI`基线调用`grab_initial_state_data`，真的比较快，并且我们已经将这些数据保存到了`pickle`文件中。
+
+现在，再次获取这些数据，我们只需要做：
+
+```py
+pickle_in = open('fiddy_states.pickle','rb')
+HPI_data = pickle.load(pickle_in)
+print(HPI_data)
+```
+
+输出比我想要粘贴的更多，但是你应该得到一个约 462 行 x50 列的数据帧。 你有了它。 部分对象是它是一个数据帧，这是我们“保存”变量的方式。 很酷！ 你可以在 Python 的任何地方用`pickle`模块来这样做，但是 Pandas 也有自己的`pickle`，所以我们可以展示：
+
+```py
+HPI_data.to_pickle('pickle.pickle')
+HPI_data2 = pd.read_pickle('pickle.pickle')
+print(HPI_data2)
+```
+
+再次，输出有点多，不能粘贴在这里，但你应该得到同样的东西。 如果你和我一样，你可能会想“如果所有的 Python 已经有 Pickle 并且工作得很好，为什么 Pandas 有自己的 Pickle 选项？” 我真的不知道。 显然，Pandas 有时可以更快地处理海量数据。
+
+现在我们已经得到了数据的`pickle`，我们已经准备好在下一篇教程中继续深入研究。
