@@ -1114,7 +1114,7 @@ print(HPI_data2)
 
 现在我们已经得到了数据的`pickle`，我们已经准备好在下一篇教程中继续深入研究。
 
-## 八、
+## 八、百分比变化和相关表
 
 欢迎阅读 Python 和 Pandas 数据分析系列教程的第八部分。 在这一部分中，我们将对数据进行一些初步的操作。 我们到目前为止的脚本是：
 
@@ -1412,3 +1412,129 @@ max     1.000000   1.000000   1.000000
 这告诉我们，对于每个州，最低的相关性是什么，平均相关性是什么，标准差是什么，前 25%，中间值（中位数/ 50%）等等。显然他们最大都为 1.0，因为他们是完全相关的。然而，最重要的是，我们在这里看到的所有这些州（50 列中的一些被跳过，我们从 GA 到 SD）与其他所有州的相关度平均上高于 90%。怀俄明州与一个州的相关度低至 74%，在看了我们的表后，它就是密歇根州。正因为如此，如果密歇根州上升，我们可能不想在怀俄明州投资，或者因为怀俄明州正在陷入困境而，出售我们在密歇根州的房子。
 
 我们不仅可以从整体指数中看到任何偏差，还可以从个别市场中寻找偏差。正如你所看到的，我们有每个州的标准差数字。当市场低于标准偏差时，我们可以尝试投资于房地产，或者当市场高于标准偏差时卖出。在我们到达那里之前，让我们在下一个教程中讨论平滑数据以及重采样的概念。
+
+## 九、重采样
+
+欢迎阅读另一个 Python 和 Pandas 数据分析教程。在本教程中，我们将讨论通过消除噪音来平滑数据。有两种主要的方法来实现。所使用的最流行的方法是称为重采样，但可能具有许多其他名称。这是我们有一些数据，以一定的比例抽样。对我们来说，我们的房屋价格指数是按一个月抽样的，但是我们可以每周，每一天，每一分钟或更多时间对 HPI 进行抽样，但是我们也可以每年，每隔 10 年重新抽样。
+
+例如，重新抽样经常出现的另一个环境就是股价。股票价格是二手数据。所发生的事情是，对于免费数据，股票价格通常最低被重新采样为分钟数据。但是，您可以购买实时数据。从长远来看，数据通常会每天采样，甚至每 3-5 天采样一次。这通常是为了使传输数据的大小保持较小。例如，在一年的过程中，二手数据通常是几个 GB，并且一次全部传输是不合理的，人们将等待几分钟或几小时来加载页面。
+
+使用我们目前每个月抽样一次的数据，我们怎样才能每六个月或两年抽样一次呢？试着想想如何亲自编写一个能执行这个任务的函数，这是一个相当具有挑战性的函数，但是它可以完成。也就是说，这是一个计算效率相当低的工作，但 Pandas 会帮助我们，并且速度非常快。让我们来看看。我们现在的起始脚本：
+
+```py
+import Quandl
+import pandas as pd
+import pickle
+import matplotlib.pyplot as plt
+from matplotlib import style
+style.use('fivethirtyeight')
+
+# Not necessary, I just do this so I do not show my API key.
+api_key = open('quandlapikey.txt','r').read()
+
+def state_list():
+    fiddy_states = pd.read_html('https://simple.wikipedia.org/wiki/List_of_U.S._states')
+    return fiddy_states[0][0][1:]
+    
+
+def grab_initial_state_data():
+    states = state_list()
+
+    main_df = pd.DataFrame()
+
+    for abbv in states:
+        query = "FMAC/HPI_"+str(abbv)
+        df = Quandl.get(query, authtoken=api_key)
+        print(query)
+        df[abbv] = (df[abbv]-df[abbv][0]) / df[abbv][0] * 100.0
+        print(df.head())
+        if main_df.empty:
+            main_df = df
+        else:
+            main_df = main_df.join(df)
+            
+    pickle_out = open('fiddy_states3.pickle','wb')
+    pickle.dump(main_df, pickle_out)
+    pickle_out.close()
+
+def HPI_Benchmark():
+    df = Quandl.get("FMAC/HPI_USA", authtoken=api_key)
+    df["United States"] = (df["United States"]-df["United States"][0]) / df["United States"][0] * 100.0
+    return df
+fig = plt.figure()
+ax1 = plt.subplot2grid((1,1), (0,0))
+HPI_data = pd.read_pickle('fiddy_states3.pickle')
+HPI_State_Correlation = HPI_data.corr()
+```
+
+首先，让我们更简单一点，首先参考德克萨斯州的信息，然后重新抽样：
+
+```py
+TX1yr = HPI_data['TX'].resample('A')
+print(TX1yr.head())
+
+Date
+1975-12-31     4.559105
+1976-12-31    11.954152
+1977-12-31    23.518179
+1978-12-31    41.978042
+1979-12-31    64.700665
+Freq: A-DEC, Name: TX, dtype: float64
+```
+
+我们以`A`重新采样，这会每年重新采样（年终）。 你可以在这里找到所有的`resample`选项：`http://pandas.pydata.org/pandas-docs/stable/timeseries.html#offset-aliases`，但这里是我写这篇教程时的最新版本：
+
+```
+Resample rule:
+xL for milliseconds
+xMin for minutes
+xD for Days
+
+Alias	Description
+B	business day frequency
+C	custom business day frequency (experimental)
+D	calendar day frequency
+W	weekly frequency
+M	month end frequency
+BM	business month end frequency
+CBM	custom business month end frequency
+MS	month start frequency
+BMS	business month start frequency
+CBMS	custom business month start frequency
+Q	quarter end frequency
+BQ	business quarter endfrequency
+QS	quarter start frequency
+BQS	business quarter start frequency
+A	year end frequency
+BA	business year end frequency
+AS	year start frequency
+BAS	business year start frequency
+BH	business hour frequency
+H	hourly frequency
+T	minutely frequency
+S	secondly frequency
+L	milliseonds
+U	microseconds
+N	nanoseconds
+
+How:
+mean, sum, ohlc
+```
+
+现在我们可以比较两个数据集：
+
+```py
+HPI_data['TX'].plot(ax=ax1)
+TX1yr.plot(color='k',ax=ax1)
+
+plt.legend().remove()
+plt.show()
+```
+
+![](https://pythonprogramming.net/static/images/pandas/pandas-resampling-tutorial.png)
+
+你可以看到，从月度数据变为年度数据并没有真正向我们隐藏趋势线本身的任何信息，但是至少在德克萨斯州，有一件有趣的事情需要注意，你觉得月度数据中的那些扭曲看起来有些模式化？我反正是。您可以将鼠标悬停在所有峰值上，然后开始查看出现峰值的一年中的月份。大部分峰值出现在 6 月左右，几乎每个最低值都在 12 月左右。许多州都有这种模式，而且在美国的 HPI 中也是如此。也许我们会玩玩这些趋势，并完成整个教程！我们现在是专家！
+
+好的不完全是，我想我们会继续教程。所以通过重新采样，我们可以选择间隔，以及我们希望“如何”重新采样。默认是按照均值，但也有一个时期的总和。如果我们按年份重采样，使用`how=sum`，那么收益就是这一年所有 HPI 值的总和。最后是 OHLC，这是高开低收。这将返回这个期间的起始值，最高值，最低值和最后一个值。
+
+我认为我们最好坚持使用月度数据，但重新采样绝对值得在任何 Pandas 教程中涵盖。现在，您可能想知道，为什么我们为重采样创建了一个新的数据帧，而不是将其添加到现有的数据帧中。原因是它会创建大量的`NaN`数据。有时候，即使只是原始的重采样也会包含`NaN`数据，特别是如果你的数据不按照统一的时间间隔更新的话。处理丢失的数据是一个主要的话题，但是我们将在下一个教程中试图广泛地介绍它，包括处理丢失数据的思路，以及如何通过程序处理您的选择。
