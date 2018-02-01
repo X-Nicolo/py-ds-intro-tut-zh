@@ -439,3 +439,333 @@ print(df.head())
 
 所以在这里，我们首先导入了无头文件，提供了列名`Date`和`House_Price`。 然后，我们决定，我们打算用`Price`代替`House_Price`。 因此，我们使用`df.rename`，指定我们要重命名的列，然后在字典形式中，键是原始名称，值是新名称。 我们最终使用`inplace = True`，以便修改原始对象。
 
+## 四、构件数据集
+
+在 Python 和 Pandas 数据分析系列教程的这一部分中，我们将扩展一些东西。让我们想想，我们是亿万富豪，还是千万富豪，但成为亿万富豪则更有趣，我们正在努力使我们的投资组合尽可能多样化。我们希望拥有所有类型的资产类别，所以我们有股票，债券，也许是一个货币市场帐户，现在我们正在寻找坚实的不动产。你们都看过广告了吗？你买了 60 美元的 CD，参加了 500 美元的研讨会，你开始把你的 6 位数字投资到房地产，对吧？
+
+好吧，也许不是，但是我们肯定要做一些研究，并有一些购买房地产的策略。那么，什么统治了房价，我们是否需要进行研究才能找到答案？一般来说，不，你并不需要那么做，我们知道这些因素。房价的因素受经济，利率和人口统计的影响。这是房地产价格总体上的三大影响。现在当然，如果你买土地，其他的事情很重要，它的水平如何，我们是否需要在土地上做一些工作，才能真正奠定基础，如何排水等等。那么我们还有更多的因素，比如屋顶，窗户，暖气/空调，地板，地基等等。我们可以稍后考虑这些因素，但首先我们要从宏观层面开始。你会看到我们的数据集在这里膨胀得有多快，它会爆炸式增长。
+
+所以，我们的第一步是收集数据。 Quandl 仍然是良好的起始位置，但是这一次让我们自动化数据抓取。我们将首先抓取 50 个州的住房数据，但是我们也试图收集其他数据。我们绝对不想手动抓取这个数据。首先，如果你还没有帐户，你需要得到一个帐户。这将给你一个 API 密钥和免费数据的无限的 API 请求，这真棒。
+
+一旦你创建了一个账户，访问`your account / me`，不管他们这个时候叫什么，然后找到标有 API 密钥的部分。这是你所需的密钥。接下来，我们要获取 Quandl 模块。我们实际上并不需要模块来生成请求，但它是一个非常小的模块，他能给我们带来一些小便利，所以不妨试试。打开你的终端或`cmd.exe`并且执行`pip install quandl`（再一次，如果`pip`不能识别，记得指定`pip`的完整路径）。
+
+接下来，我们做好了开始的准备，打开一个新的编辑器。开始：
+
+```py
+import Quandl
+
+# Not necessary, I just do this so I do not show my API key.
+api_key = open('quandlapikey.txt','r').read()
+
+df = Quandl.get("FMAC/HPI_TX", authtoken=api_key)
+
+print(df.head())
+```
+
+如果你愿意的话，你可以只存储你的密钥的纯文本版本，我只隐藏了我的密钥，因为它是我发布的教程。这是我们需要做的，来获得德克萨斯州的房价指数。我们抓取的实际指标可以在任何页面上找到，无论你什么时候访问，只要在网站上点击你使用的库，我们这里是 Python，然后需要输入的查询就会弹出。
+
+随着您的数据科学事业的发展，您将学习到各种常数，因为人们是合乎逻辑和合理的。我们这里，我们需要获取所有州的数据。我们如何做到呢？我们是否需要手动抓取每个指标？不，看看这个代码，我们看到`FMAC/HPI_TX`。我们可以很容易地把这个解码为`FMAC = Freddie Mac`。 `HPI = House Price Index`（房价指数）。`TX`是德克萨斯州，它的常用两字母缩写。从这里，我们可以安全地假设所有的代码都是这样构建的，所以现在我们只需要一个州缩写的列表。我们搜索它，作出选择，就像这个 50 个州的列表。怎么办？
+
+我们可以通过多种方式提取这些数据。这是一个 Pandas 教程，所以如果我们可以 Pandas 熊猫，我们就这样。让我们来看看 Pandas 的`read_html`。它不再被称为“实验性”的，但我仍然会将其标记为实验性的。其他 IO 模块的标准和质量非常高并且可靠。`read_html`并不是很好，但我仍然说这是非常令人印象深刻有用的代码，而且很酷。它的工作方式就是简单地输入一个 URL，Pandas 会从表中将有价值的数据提取到数据帧中。这意味着，与其他常用的方法不同，`read_html`最终会读入一些列数据帧。这不是唯一不同点，但它是不同的。首先，为了使用`read_html`，我们需要`html5lib`。打开`cmd.exe`或您的终端，并执行：`pip install html5lib`。现在，我们可以做我们的第一次尝试：
+
+```py
+fiddy_states = pd.read_html('https://simple.wikipedia.org/wiki/List_of_U.S._states')
+print(fiddy_states)
+```
+
+它的输出比我要在这里发布的更多，但你明白了。 这些数据中至少有一部分是我们想要的，看起来第一个数据帧是一个很好的开始。 那么让我们执行：
+
+```py
+print(fiddy_states[0])
+               0               1               2                  3
+0   Abbreviation      State name         Capital     Became a state
+1             AL         Alabama      Montgomery  December 14, 1819
+2             AK          Alaska          Juneau    January 3, 1959
+3             AZ         Arizona         Phoenix  February 14, 1912
+4             AR        Arkansas     Little Rock      June 15, 1836
+5             CA      California      Sacramento  September 9, 1850
+6             CO        Colorado          Denver     August 1, 1876
+7             CT     Connecticut        Hartford    January 9, 1788
+8             DE        Delaware           Dover   December 7, 1787
+9             FL         Florida     Tallahassee      March 3, 1845
+10            GA         Georgia         Atlanta    January 2, 1788
+11            HI          Hawaii        Honolulu    August 21, 1959
+12            ID           Idaho           Boise       July 3, 1890
+13            IL        Illinois     Springfield   December 3, 1818
+14            IN         Indiana    Indianapolis  December 11, 1816
+15            IA            Iowa      Des Moines  December 28, 1846
+16            KS          Kansas          Topeka   January 29, 1861
+17            KY        Kentucky       Frankfort       June 1, 1792
+18            LA       Louisiana     Baton Rouge     April 30, 1812
+19            ME           Maine         Augusta     March 15, 1820
+20            MD        Maryland       Annapolis     April 28, 1788
+21            MA   Massachusetts          Boston   February 6, 1788
+22            MI        Michigan         Lansing   January 26, 1837
+23            MN       Minnesota      Saint Paul       May 11, 1858
+24            MS     Mississippi         Jackson  December 10, 1817
+25            MO        Missouri  Jefferson City    August 10, 1821
+26            MT         Montana          Helena   November 8, 1889
+27            NE        Nebraska         Lincoln      March 1, 1867
+28            NV          Nevada     Carson City   October 31, 1864
+29            NH   New Hampshire         Concord      June 21, 1788
+30            NJ      New Jersey         Trenton  December 18, 1787
+31            NM      New Mexico        Santa Fe    January 6, 1912
+32            NY        New York          Albany      July 26, 1788
+33            NC  North Carolina         Raleigh  November 21, 1789
+34            ND    North Dakota        Bismarck   November 2, 1889
+35            OH            Ohio        Columbus      March 1, 1803
+36            OK        Oklahoma   Oklahoma City  November 16, 1907
+37            OR          Oregon           Salem  February 14, 1859
+38            PA    Pennsylvania      Harrisburg  December 12, 1787
+39            RI    Rhode Island      Providence       May 19, 1790
+40            SC  South Carolina        Columbia       May 23, 1788
+41            SD    South Dakota          Pierre   November 2, 1889
+42            TN       Tennessee       Nashville       June 1, 1796
+43            TX           Texas          Austin  December 29, 1845
+44            UT            Utah  Salt Lake City    January 4, 1896
+45            VT         Vermont      Montpelier      March 4, 1791
+46            VA        Virginia        Richmond      June 25, 1788
+47            WA      Washington         Olympia  November 11, 1889
+48            WV   West Virginia      Charleston      June 20, 1863
+49            WI       Wisconsin         Madison       May 29, 1848
+50            WY         Wyoming        Cheyenne      July 10, 1890
+```
+
+是的，这看起来不错，我们想要第零列。所以，我们要遍历`fiddy_states[0]`的第零列。 请记住，现在`fiddy_states`是一个数帧列表，而`fiddy_states[0]`是第一个数据帧。 为了引用第零列，我们执行`fiddy_states[0][0]`。 一个是列表索引，它返回一个数据帧。 另一个是数据帧中的一列。 接下来，我们注意到第零列中的第一项是`abbreviation`，我们不想要它。 当我们遍历第零列中的所有项目时，我们可以使用`[1:]`排除掉它。 因此，我们的缩写列表是`fiddy_states[0][0][1:]`，我们可以像这样迭代：
+
+```py
+for abbv in fiddy_states[0][0][1:]:
+    print(abbv)
+AL
+AK
+AZ
+AR
+CA
+CO
+CT
+DE
+FL
+GA
+HI
+ID
+IL
+IN
+IA
+KS
+KY
+LA
+ME
+MD
+MA
+MI
+MN
+MS
+MO
+MT
+NE
+NV
+NH
+NJ
+NM
+NY
+NC
+ND
+OH
+OK
+OR
+PA
+RI
+SC
+SD
+TN
+TX
+UT
+VT
+VA
+WA
+WV
+WI
+WY
+```
+
+完美！ 现在，我们回忆这样做的原因：我们正在试图用州名缩写建立指标，来获得每个州的房价指数。 好的，我们可以建立指标：
+
+```py
+for abbv in fiddy_states[0][0][1:]:
+    #print(abbv)
+    print("FMAC/HPI_"+str(abbv))
+FMAC/HPI_AL
+FMAC/HPI_AK
+FMAC/HPI_AZ
+FMAC/HPI_AR
+FMAC/HPI_CA
+FMAC/HPI_CO
+FMAC/HPI_CT
+FMAC/HPI_DE
+FMAC/HPI_FL
+FMAC/HPI_GA
+FMAC/HPI_HI
+FMAC/HPI_ID
+FMAC/HPI_IL
+FMAC/HPI_IN
+FMAC/HPI_IA
+FMAC/HPI_KS
+FMAC/HPI_KY
+FMAC/HPI_LA
+FMAC/HPI_ME
+FMAC/HPI_MD
+FMAC/HPI_MA
+FMAC/HPI_MI
+FMAC/HPI_MN
+FMAC/HPI_MS
+FMAC/HPI_MO
+FMAC/HPI_MT
+FMAC/HPI_NE
+FMAC/HPI_NV
+FMAC/HPI_NH
+FMAC/HPI_NJ
+FMAC/HPI_NM
+FMAC/HPI_NY
+FMAC/HPI_NC
+FMAC/HPI_ND
+FMAC/HPI_OH
+FMAC/HPI_OK
+FMAC/HPI_OR
+FMAC/HPI_PA
+FMAC/HPI_RI
+FMAC/HPI_SC
+FMAC/HPI_SD
+FMAC/HPI_TN
+FMAC/HPI_TX
+FMAC/HPI_UT
+FMAC/HPI_VT
+FMAC/HPI_VA
+FMAC/HPI_WA
+FMAC/HPI_WV
+FMAC/HPI_WI
+FMAC/HPI_WY
+```
+
+我们已经得到了指标，现在我们已经准备好提取数据帧了。 但是，一旦我们拿到他们，我们会做什么？ 我们将使用 50 个独立的数据帧？ 听起来像一个愚蠢的想法，我们需要一些方法来组合他们。 Pandas 背后的优秀人才看到了这一点，并为我们提供了多种组合数据帧的方法。 我们将在下一个教程中讨论这个问题。
+
+## 五、连接和附加数据帧
+
+欢迎阅读 Python 和 Pandas 数据分析系列教程第五部分。在本教程中，我们将介绍如何以各种方式组合数据帧。
+
+在我们的房地产投资案例中，我们希望使用房屋数据获取 50 个数据帧，然后把它们全部合并成一个数据帧。我们这样做有很多原因。首先，将这些组合起来更容易，更有意义，也会减少使用的内存。每个数据帧都有日期和值列。这个日期列在所有数据帧中重复出现，但实际上它们应该全部共用一个，实际上几乎减半了我们的总列数。
+
+在组合数据帧时，您可能会考虑相当多的目标。例如，你可能想“附加”到他们，你可能会添加到最后，基本上就是添加更多的行。或者，也许你想添加更多的列，就像我们的情况一样。有四种主要的数据帧组合方式，我们现在开始介绍。四种主要的方式是：连接（Concatenation），连接（Join），合并和附加。我们将从第一种开始。这里有一些初始数据帧：
+
+```py
+df1 = pd.DataFrame({'HPI':[80,85,88,85],
+                    'Int_rate':[2, 3, 2, 2],
+                    'US_GDP_Thousands':[50, 55, 65, 55]},
+                   index = [2001, 2002, 2003, 2004])
+
+df2 = pd.DataFrame({'HPI':[80,85,88,85],
+                    'Int_rate':[2, 3, 2, 2],
+                    'US_GDP_Thousands':[50, 55, 65, 55]},
+                   index = [2005, 2006, 2007, 2008])
+
+df3 = pd.DataFrame({'HPI':[80,85,88,85],
+                    'Int_rate':[2, 3, 2, 2],
+                    'Low_tier_HPI':[50, 52, 50, 53]},
+                   index = [2001, 2002, 2003, 2004])
+```
+
+注意这些之间有两个主要的变化。 `df1`和`df3`具有相同的索引，但它们有一些不同的列。 `df2`和`df3`有不同的索引和一些不同的列。 通过连接（concat），我们可以讨论将它们结合在一起的各种方法。 我们来试一下简单的连接（concat）：
+
+```py
+concat = pd.concat([df1,df2])
+print(concat)
+
+
+      HPI  Int_rate  US_GDP_Thousands
+2001   80         2                50
+2002   85         3                55
+2003   88         2                65
+2004   85         2                55
+2005   80         2                50
+2006   85         3                55
+2007   88         2                65
+2008   85         2                55
+```
+
+很简单。 这两者之间的主要区别仅仅是索引的延续，但是它们共享同一列。 现在他们已经成为单个数据帧。 然而我们这里，我们对添加列而不是行感到好奇。 当我们将一些共有的和一些新列组合起来：
+
+```py
+concat = pd.concat([df1,df2,df3])
+print(concat)
+
+
+      HPI  Int_rate  Low_tier_HPI  US_GDP_Thousands
+2001   80         2           NaN                50
+2002   85         3           NaN                55
+2003   88         2           NaN                65
+2004   85         2           NaN                55
+2005   80         2           NaN                50
+2006   85         3           NaN                55
+2007   88         2           NaN                65
+2008   85         2           NaN                55
+2001   80         2            50               NaN
+2002   85         3            52               NaN
+2003   88         2            50               NaN
+2004   85         2            53               NaN
+```
+
+不错，我们有一些`NaN`（不是数字），因为那个索引处不存在数据，但是我们所有的数据确实在这里。
+
+这些就是基本的连接（concat），接下来，我们将讨论附加。 附加就像连接的第一个例子，只是更加强大一些，因为数据帧会简单地追加到行上。 我们通过一个例子来展示它的工作原理，同时也展示它可能出错的地方：
+
+```py
+df4 = df1.append(df2)
+print(df4)
+
+
+      HPI  Int_rate  US_GDP_Thousands
+2001   80         2                50
+2002   85         3                55
+2003   88         2                65
+2004   85         2                55
+2005   80         2                50
+2006   85         3                55
+2007   88         2                65
+2008   85         2                55
+```
+
+这就是我们期望的附加。 在大多数情况下，你将要做这样的事情，就像在数据库中插入新行一样。 我们并没有真正有效地附加数据帧，它们更像是根据它们的起始数据来操作，但是如果你需要，你可以附加。 当我们附加索引相同的数据时会发生什么？
+
+```py
+df4 = df1.append(df3)
+print(df4)
+
+
+      HPI  Int_rate  Low_tier_HPI  US_GDP_Thousands
+2001   80         2           NaN                50
+2002   85         3           NaN                55
+2003   88         2           NaN                65
+2004   85         2           NaN                55
+2001   80         2            50               NaN
+2002   85         3            52               NaN
+2003   88         2            50               NaN
+2004   85         2            53               NaN
+```
+
+好吧，这很不幸。 有人问为什么连接（concat ）和附加都退出了。 这就是原因。 因为共有列包含相同的数据和相同的索引，所以组合这些数据帧要高效得多。 一个另外的例子是附加一个序列。 鉴于`append`的性质，您可能会附加一个序列而不是一个数据帧。 至此我们还没有谈到序列。 序列基本上是单列的数据帧。 序列确实有索引，但是，如果你把它转换成一个列表，它将仅仅是这些值。 每当我们调用`df ['column']`时，返回值就是一个序列。
+
+```py
+s = pd.Series([80,2,50], index=['HPI','Int_rate','US_GDP_Thousands'])
+df4 = df1.append(s, ignore_index=True)
+print(df4)
+
+   HPI  Int_rate  US_GDP_Thousands
+0   80         2                50
+1   85         3                55
+2   88         2                65
+3   85         2                55
+4   80         2                50
+```
+
+在附加序列时，我们必须忽略索引，因为这是规则，除非序列拥有名称。
+
+在这里，我们已经介绍了 Pandas 中的连接（concat）和附加数据帧。 接下来，我们将讨论如何连接（join）和合并数据帧。
