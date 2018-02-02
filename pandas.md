@@ -1802,3 +1802,257 @@ HPI_data.fillna(value=-99999,inplace=True)
 现在，在我们的情况下，这是一个毫无用处的操作，但它确实在某些形式的数据分析中占有一席之地。
 
 现在我们已经介绍了处理缺失数据的基础知识，我们准备继续。 在下一篇教程中，我们将讨论另一种平滑数据的方法，这些方法可以让我们保留月度数据：滚动统计量。 这对于平滑我们的数据，以及在它上面收集一些基本的统计量是有用的。
+
+## 十一、滚动统计量
+
+欢迎阅读另一个 Python 和 Pandas 数据分析系列教程，这里面我们成为了房地产大亨。在本教程中，我们将讨论各种滚动统计量在我们的数据帧中的应用。
+
+其中较受欢迎的滚动统计量是移动均值。这需要一个移动的时间窗口，并计算该时间段的均值作为当前值。在我们的情况下，我们有月度数据。所以 10 移动均值就是当前值加上前 9 个月的数据的均值，之后我们的月度数据将有 10 个移动均值。Pandas 做这个是非常快的。Pandas 带有一些预先制作的滚动统计量，但也有一个叫做`rolling_apply`。这使我们可以编写我们自己的函数，接受窗口数据并应用我们想要的任何合理逻辑。这意味着，即使Pandas 没有处理你想要的东西的正式函数，他们已经覆盖了你，让你准确地编写你需要的东西。让我们从基本的移动均值开始，或者 Pandas 叫它`rolling_mean`。您可以查看 Pandas 文档中的所有移动/滚动统计量。
+
+前面的教程涵盖了我们的起始脚本，如下所示：
+
+```py
+import Quandl
+import pandas as pd
+import pickle
+import matplotlib.pyplot as plt
+from matplotlib import style
+style.use('fivethirtyeight')
+
+# Not necessary, I just do this so I do not show my API key.
+api_key = open('quandlapikey.txt','r').read()
+
+def state_list():
+    fiddy_states = pd.read_html('https://simple.wikipedia.org/wiki/List_of_U.S._states')
+    return fiddy_states[0][0][1:]
+    
+
+def grab_initial_state_data():
+    states = state_list()
+
+    main_df = pd.DataFrame()
+
+    for abbv in states:
+        query = "FMAC/HPI_"+str(abbv)
+        df = Quandl.get(query, authtoken=api_key)
+        print(query)
+        df[abbv] = (df[abbv]-df[abbv][0]) / df[abbv][0] * 100.0
+        print(df.head())
+        if main_df.empty:
+            main_df = df
+        else:
+            main_df = main_df.join(df)
+            
+    pickle_out = open('fiddy_states3.pickle','wb')
+    pickle.dump(main_df, pickle_out)
+    pickle_out.close()
+
+def HPI_Benchmark():
+    df = Quandl.get("FMAC/HPI_USA", authtoken=api_key)
+    df["United States"] = (df["United States"]-df["United States"][0]) / df["United States"][0] * 100.0
+    return df
+
+fig = plt.figure()
+ax1 = plt.subplot2grid((1,1), (0,0))
+HPI_data = pd.read_pickle('fiddy_states3.pickle')
+plt.show()
+```
+
+现在，在定义`HPI_data`之后，我们可以添加一些新的数据，如下所示：
+
+
+```py
+HPI_data['TX12MA'] = pd.rolling_mean(HPI_data['TX'], 12)
+```
+
+这给了我们一个新列，我们命名为`TX12MA`来表示得克萨斯和 12 移动平均。 我们将这个应用到`pd.rolling_mean()`中，该函数接受 2 个主要参数，我们正在应用的数据以及我们打算执行的周期/窗口。
+
+![](https://pythonprogramming.net/static/images/pandas/pandas-rolling-mean-tutorial.png)
+
+使用滚动统计量，开头将生成`NaN`数据。 考虑执行 10 移动均值。 在`#3`行，我们根本没有 10 个以前的数据点。 因此会形成`NaN`数据。 你可以把它留在那里，或者用前面的教程中的`dropna()`来删除它。
+
+另一个有趣的是滚动标准差。 我们需要把它放在自己的图表上，但我们可以这样做：
+
+```py
+ig = plt.figure()
+ax1 = plt.subplot2grid((2,1), (0,0))
+ax2 = plt.subplot2grid((2,1), (1,0), sharex=ax1)
+HPI_data = pd.read_pickle('fiddy_states3.pickle')
+HPI_data['TX12MA'] = pd.rolling_mean(HPI_data['TX'], 12)
+HPI_data['TX12STD'] = pd.rolling_std(HPI_data['TX'], 12)
+
+HPI_data['TX'].plot(ax=ax1)
+HPI_data['TX12MA'].plot(ax=ax1)
+HPI_data['TX12STD'].plot(ax=ax2)
+
+plt.show()
+```
+
+![](https://pythonprogramming.net/static/images/pandas/pandas-rolling-standard-deviation-tutorial.png)
+
+这里发生了一些事情，让我们快速谈论它们。
+
+```py
+ax1 = plt.subplot2grid((2,1), (0,0))
+ax2 = plt.subplot2grid((2,1), (1,0), sharex=ax1)
+```
+
+在这里，我们定义了第二个轴，并改变我们的大小。 我们说这个子图的网格是`2×1`（高 2，宽 1），那么我们说`ax1`从`0,0`开始，`ax2`从`1,0`开始，它和`ax1`共享`x`轴。 这使我们可以放大一个图形，而另一个图形也放大到同一点。 仍然对 Matplotlib 感到困惑？ 使用 Matplotlib 系列教程查看完整的数据可视化。
+
+接下来，我们计算移动标准差：
+
+```py
+HPI_data['TX12STD'] = pd.rolling_std(HPI_data['TX'], 12)
+```
+
+然后，我们绘制所有东西。
+
+另一个有趣的可视化是比较得克萨斯`HPI`与整体`HPI`。 然后计算他们两个之间的滚动相关性。 假设是，相关性下降时，很快就会出现逆转。 如果相关性下降，这意味着得克萨斯`HPI`和整体`HPI`是不一致的。 比方说，美国整体的`HPI`在上面，`TX_HPI`在下面产生分歧。 在这种情况下，我们可能会选择投资德克萨斯州的房地产。 另一个选择是使用`TX`和另一个高度相关的区域。 例如，德克萨斯州与阿拉斯加的相关系数为`0.983235`。 让我们看看我们的计划看起来怎么样。 最后一块应该现在看起来是这样：
+
+```py
+fig = plt.figure()
+ax1 = plt.subplot2grid((2,1), (0,0))
+ax2 = plt.subplot2grid((2,1), (1,0), sharex=ax1)
+HPI_data = pd.read_pickle('fiddy_states3.pickle')
+
+TX_AK_12corr = pd.rolling_corr(HPI_data['TX'], HPI_data['AK'], 12)
+
+HPI_data['TX'].plot(ax=ax1, label="TX HPI")
+HPI_data['AK'].plot(ax=ax1, label="AK HPI")
+ax1.legend(loc=4)
+
+TX_AK_12corr.plot(ax=ax2)
+
+plt.show()
+```
+
+![](https://pythonprogramming.net/static/images/pandas/pandas-rolling-statistics-tutorial.png)
+
+每当相关性下降时，你理论上应该在上涨的地方出售房地产，然后你应该购买正在下降的地区的房地产。这个想法是，这两个地区是高度相关的，我们可以非常确信，相关性最终会回到`0.98`左右。因此，当相关系数为`-0.5`时，我们可以非常有把握地决定采取这样的行动，因为结果可能是下面的结果之一：`HPI`永远是这样的分歧，永远不会恢复（不太可能），下降的地区上升并遇到上升的地区，这样我们赢了，上升的地区下降并遇到另一个下降的地区，在这种情况下，我们发了一笔大财，或者双方都重新一致，在这种情况下，我们肯定赢了。 `HPI`不可能完全背离这些市场。我们可以清楚地看到，这完全不会发生，我们有 40 年的数据支持。
+
+在接下来的教程中，我们将讨论异常值检测，不管是错误与否，还包括了如何处理这些数据背后的一些哲理。
+
+## 十二、将比较操作应用于数据帧
+
+欢迎阅读 Python 和 Pandas 数据分析系列教程第 12 部分。 在本教程中，我们将简要讨论如何处理错误/异常数据。 仅仅因为数据是异常的，并不意味着它是错误的。 很多时候，离群数据点可以使一个假设无效，所以去除它的必要性可能会很高，但这不是我们在这里讨论的。
+
+错误的异常值是多少？ 我喜欢使用的一个例子是测量诸如桥梁之类的波动。 由于桥梁承载重量，他们可以移动一点。 在风浪中，可以稍微摆动一下，就会有一些自然的运动。 随着时间的推移，支撑力量减弱，桥梁可能会移动太多，最终需要加固。 也许我们有一个不断测量桥梁高度波动的系统。
+
+![](https://pythonprogramming.net/static/images/pandas/pandas-distance-sensor-example.png)
+
+一些距离传感器使用激光，另一些则反弹声波。 无论你想假装我们正在使用哪个，都没关系。 我们会假装声波。 它们的工作方式是从触发器发出声波，然后在前面物体处反弹，返回到接收器。 从这里开始，整个操作发生的时间被考虑在内。 由于音速是一个常数，我们可以从这个过程的时间推断出声波传播的距离。 问题是，这只衡量声波传播了多远。 例如他们去了桥梁和背部，没有 100% 的确定性。 也许一片树叶在测量时掉落，并在信号回到接收器之前反弹了信号，谁知道呢。 比方说，举个例子，你有以下的桥梁读数：
+
+```py
+bridge_height = {'meters':[10.26, 10.31, 10.27, 10.22, 10.23, 6212.42, 10.28, 10.25, 10.31]}
+```
+
+我们可以可视化：
+
+```py
+import pandas as pd
+import matplotlib.pyplot as plt
+from matplotlib import style
+
+style.use('fivethirtyeight')
+
+bridge_height = {'meters':[10.26, 10.31, 10.27, 10.22, 10.23, 6212.42, 10.28, 10.25, 10.31]}
+df = pd.DataFrame(bridge_height)
+
+df.plot()
+plt.show()
+```
+
+那么桥是不是被外星人动过了？ 由于此后我们有更多的正常读数，`6212.42`更可能是一个不好的读数。 我们可以直观地看出这是一个异常，但是我们怎么能通过我们的程序检测到这一点？
+
+我们意识到这是一个异常值，因为它与其他价有很大的不同，以及它比其他任何值都突然上升或下降的事实。 听起来我们可以仅仅应用标准差。 我们用它来自动检测这个不好的读数。
+
+```py
+df['STD'] = pd.rolling_std(df['meters'], 2)
+print(df)
+
+    meters          STD
+0    10.26          NaN
+1    10.31     0.035355
+2    10.27     0.028284
+3    10.22     0.035355
+4    10.23     0.007071
+5  6212.42  4385.610607
+6    10.28  4385.575252
+7    10.25     0.021213
+8    10.31     0.042426
+```
+
+> 注：两个数的标准差就是`|a - b|/2`。
+
+接下来，我们可以获得整个集合的标准差，如：
+
+```py
+df_std = df.describe()
+print(df_std)
+df_std = df.describe()['meters']['std']
+print(df_std)
+
+            meters          STD
+count     9.000000     8.000000
+mean    699.394444  1096.419446
+std    2067.384584  2030.121949
+min      10.220000     0.007071
+25%      10.250000     0.026517
+50%      10.270000     0.035355
+75%      10.310000  1096.425633
+max    6212.420000  4385.610607
+2067.38458357
+```
+
+首先，我们得到所有的描述。 显示了大部分，所以你看我们如何处理数据。 然后，我们直接查看米的标准差，这是 2067 和一些变化。 这是一个相当高的数字，但仍然远低于主要波动（4385）的标准差。 现在，我们可以遍历并删除所有标准差高于这个值的数据。
+
+这使我们能够学习一项新技能：在逻辑上修改数据帧！ 我们可以这样做：
+
+```py
+df = df[ (df['STD'] < df_std) ]
+print(df)
+
+   meters       STD
+1   10.31  0.035355
+2   10.27  0.028284
+3   10.22  0.035355
+4   10.23  0.007071
+7   10.25  0.021213
+8   10.31  0.042426
+```
+
+之后我们可以绘制所有东西：
+
+```py
+import pandas as pd
+import matplotlib.pyplot as plt
+from matplotlib import style
+
+style.use('fivethirtyeight')
+
+bridge_height = {'meters':[10.26, 10.31, 10.27, 10.22, 10.23, 6212.42, 10.28, 10.25, 10.31]}
+df = pd.DataFrame(bridge_height)
+
+df['STD'] = pd.rolling_std(df['meters'], 2)
+print(df)
+
+df_std = df.describe()
+print(df_std)
+df_std = df.describe()['meters']['std']
+print(df_std)
+
+
+df = df[ (df['STD'] < df_std) ]
+print(df)
+
+df['meters'].plot()
+plt.show()
+```
+
+输出：
+
+![](https://pythonprogramming.net/static/images/pandas/pandas-outlier-detection-tutorial.png)
+
+我们刚学到的新行是`df = df[ (df['STD'] < df_std) ]`。 这是如何工作的？ 首先，我们一开始重新定义`df`。 我们说现在`df`等于`df`，其中`df['STD']`小于我们之前计算的整体`df_std`。 因此，这里唯一剩下的数据将是标准差小于 2067 的数据。
+
+再次，当我们知道这些数据错误的，我们应该删除它。 因为数据不“适合”你而删除，几乎总是一个坏主意。
