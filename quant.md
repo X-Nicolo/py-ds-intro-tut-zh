@@ -85,3 +85,59 @@ Date
 +   成交量 - 那一天有多少股交易？
 
 调整收盘价 - 这一个稍微复杂一些，但是随着时间的推移，公司可能决定做一个叫做股票拆分的事情。例如，苹果一旦股价超过 1000 美元就做了一次。由于在大多数情况下，人们不能购买股票的一小部分，股票价格 1000 美元相当限制投资者。公司可以做股票拆分，他们说每股现在是 2 股，价格是一半。任何人如果以 1,000 美元买入 1 股苹果股份，在拆分之后，苹果的股票翻倍，他们将拥有 2 股苹果（AAPL），每股价值 500 美元。调整收盘价是有帮助的，因为它解释了未来的股票分割，并给出分割的相对价格。出于这个原因，调整价格是你最有可能处理的价格。
+
+## 二、处理数据和绘图
+
+欢迎阅读 Python 金融系列教程的第 2 部分。 在本教程中，我们将使用我们的股票数据进一步拆分一些基本的数据操作和可视化。 我们将使用的起始代码（在前面的教程中已经介绍过）是：
+
+```py
+import datetime as dt
+import matplotlib.pyplot as plt
+from matplotlib import style
+import pandas as pd
+import pandas_datareader.data as web
+
+style.use('ggplot')
+start = dt.datetime(2000,1,1)
+end = dt.datetime(2016,12,31)
+df = web.DataReader('TSLA', 'yahoo', start, end)
+```
+
+我们可以用这些`DataFrame`做些什么？ 首先，我们可以很容易地将它们保存到各种数据类型中。 一个选项是`csv`：
+
+```py
+df.to_csv('TSLA.csv')
+```
+
+我们也可以将数据从 CSV 文件读取到`DataFrame`中，而不是将数据从 Yahoo 财经 API 读取到`DataFrame`中：
+
+```py
+df = pd.read_csv('tsla.csv', parse_dates=True, index_col=0)
+```
+
+现在，我们可以绘制它：
+
+```py
+df.plot()
+plt.show()
+```
+
+![](https://pythonprogramming.net/static/images/finance/initial_graph_volume.png)
+
+很酷，尽管我们真正能看到的唯一的东西就是成交量，因为它比股票价格大得多。 我们怎么可能仅仅绘制我们感兴趣的东西？
+
+```py
+df['Adj Close'].plot()
+plt.show()
+```
+
+![](https://pythonprogramming.net/static/images/finance/stock_data_graph.png)
+
+你可以看到，你可以在`DataFrame`中引用特定的列，如：`df['Adj Close']`，但是你也可以一次引用多个，如下所示：
+
+```py
+df[['High','Low']]
+```
+
+在下一个教程中，我们将介绍这些数据的一些基本操作，以及一些更基本的可视化。
+
