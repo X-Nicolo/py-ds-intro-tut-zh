@@ -2535,3 +2535,119 @@ Name: M30, dtype: float64
 ```
 
 这里的均值在`-0.7`以下，这与我们以前的发现非常一致，这里并没有太多的延展。这在逻辑上应该是显而易见的，但数据明确地反映了，抵押贷款利率在房价中起着重要的作用。到目前为止，我所发现的有趣之处是，我们所看到的变化是多么的微小。有一些州存在分歧，但不是很多。大多数州严格保持在一条直线上，带有非常简单的规则。在深入局部地区之前，我们的第三个主要因素，是整体经济。从这里开始，我们可以开始关注州的人口统计数据，同时我们深入到县甚至社区。但是，我想知道，鉴于迄今为止这样可靠的值，我们已经很容易为`HPI`制定一个公式。如果不是一个基本的公式，我怀疑我们可以在一个随机森林分类器中使用这些数据，并做得很好。现在，让我们继续看看整体经济。我们希望看到`0.5`以上的相关性。我们在下一个教程中介绍一下。
+
+## 十四、添加其它经济指标
+
+大家好，欢迎阅读我们的 Python 和 Pandas 数据分析（和地产投资）系列教程的第14部分。我们在这里已经走了很长一段路，我们想要在这里采取的下一个，最后一个宏观步骤是研究经济指标，看看它们对房价或`HPI`的影响。
+
+SP500 （股票市场）和国内生产总值（GDP）是两个主要的经济指标。我怀疑 SP500 比国内生产总值相关性更高，但 GDP 总体来说是一个较好的整体经济指标，所以我可能是错的。以及，我怀疑在这里可能有价值的宏观指标是失业率。如果你失业了，你可能不能得到抵押贷款。我们会验证。我们已经完成了添加更多数据点的流程，所以把你拖入这个过程没有多少意义。但是会有一个新的东西需要注意。在`HPI_Benchmark()`函数中，我们将`United States`列更改为`US_HPI`。当我们现在引入其他值时，这会更有意义。
+
+对于国内生产总值，我找不到一个包含所有时间的东西。我相信你可以使用这个数据在某个地方，甚至在 Quandl 上找到一个数据集。有时你必须做一些挖掘。我也很难找到一个很好的长期月失业率。我确实找到了一个失业率水平，但我们真的不仅仅想要百分比/比例，否则我们需要把失业水平除以人口。如果我们确定失业率值得拥有，我们可以这样做，但我们需要首先处理我们得到的东西。
+
+将 Pandas 和 Quandl 代码更新为 2016 年 8 月 1 日的最新版本：
+
+```py
+import quandl
+import pandas as pd
+import pickle
+import matplotlib.pyplot as plt
+from matplotlib import style
+style.use('fivethirtyeight')
+
+# Not necessary, I just do this so I do not show my API key.
+api_key = open('quandlapikey.txt','r').read()
+
+def state_list():
+    fiddy_states = pd.read_html('https://simple.wikipedia.org/wiki/List_of_U.S._states')
+    return fiddy_states[0][0][1:]
+    
+
+def grab_initial_state_data():
+    states = state_list()
+
+    main_df = pd.DataFrame()
+
+    for abbv in states:
+        query = "FMAC/HPI_"+str(abbv)
+        df = quandl.get(query, authtoken=api_key)
+        df.rename(columns={'Value': abbv}, inplace=True)
+        df[abbv] = (df[abbv]-df[abbv][0]) / df[abbv][0] * 100.0
+        print(df.head())
+        if main_df.empty:
+            main_df = df
+        else:
+            main_df = main_df.join(df)
+            
+    pickle_out = open('fiddy_states3.pickle','wb')
+    pickle.dump(main_df, pickle_out)
+    pickle_out.close()
+
+def HPI_Benchmark():
+    df = quandl.get("FMAC/HPI_USA", authtoken=api_key)
+    df["United States"] = (df["Value"]-df["Value"][0]) / df["Value"][0] * 100.0
+    df.rename(columns={'United States':'US_HPI'}, inplace=True)
+    return df
+
+def mortgage_30y():
+    df = quandl.get("FMAC/MORTG", trim_start="1975-01-01", authtoken=api_key)
+    df["Value"] = (df["Value"]-df["Value"][0]) / df["Value"][0] * 100.0
+    df=df.resample('1D').mean()
+    df=df.resample('M').mean()
+    return df
+
+def sp500_data():
+    df = quandl.get("YAHOO/INDEX_GSPC", trim_start="1975-01-01", authtoken=api_key)
+    df["Adjusted Close"] = (df["Adjusted Close"]-df["Adjusted Close"][0]) / df["Adjusted Close"][0] * 100.0
+    df=df.resample('M').mean()
+    df.rename(columns={'Adjusted Close':'sp500'}, inplace=True)
+    df = df['sp500']
+    return df
+
+def gdp_data():
+    df = quandl.get("BCB/4385", trim_start="1975-01-01", authtoken=api_key)
+    df["Value"] = (df["Value"]-df["Value"][0]) / df["Value"][0] * 100.0
+    df=df.resample('M').mean()
+    df.rename(columns={'Value':'GDP'}, inplace=True)
+    df = df['GDP']
+    return df
+
+def us_unemployment():
+    df = quandl.get("ECPI/JOB_G", trim_start="1975-01-01", authtoken=api_key)
+    df["Unemployment Rate"] = (df["Unemployment Rate"]-df["Unemployment Rate"][0]) / df["Unemployment Rate"][0] * 100.0
+    df=df.resample('1D').mean()
+    df=df.resample('M').mean()
+    return df
+
+
+
+grab_initial_state_data() 
+HPI_data = pd.read_pickle('fiddy_states3.pickle')
+m30 = mortgage_30y()
+sp500 = sp500_data()
+gdp = gdp_data()
+HPI_Bench = HPI_Benchmark()
+unemployment = us_unemployment()
+m30.columns=['M30']
+HPI = HPI_Bench.join([m30,sp500,gdp,unemployment])
+HPI.dropna(inplace=True)
+print(HPI.corr())
+```
+
+```
+                     US_HPI       M30     sp500       GDP  Unemployment Rate
+US_HPI             1.000000 -0.738364  0.738395  0.543507           0.033925
+M30               -0.738364  1.000000 -0.625544 -0.714845          -0.395650
+sp500              0.738395 -0.625544  1.000000  0.470505          -0.262561
+GDP                0.543507 -0.714845  0.470505  1.000000           0.551058
+Unemployment Rate  0.033925 -0.395650 -0.262561  0.551058           1.000000
+```
+
+在这里，我们看到 SP500 与`US_HPI`强相关，30 年抵押贷款利率显然也是如此。其次，GDP 不是最可靠的。这是正值，但我更像看`> 70`的东西。最后，失业率更低。几乎中立！我对此感到非常惊讶。有了这些信息，我想说 SP500 和 30 年抵押贷款利率可以用来预测房屋市场。这很好，因为这些数字都可以不间断地获得。我很惊讶地看到 SP500 与 HPI 之间的 0.738 相关性。大多数人认为股票和住房是多元化的。很多人都记得房地产危机，而且既然股市和房屋都一起下跌，可能就不会有这样的感觉了，但是传统的智慧依然表明人们通过持有股票和房地产来多样化。 40 年的数据似乎并不完全一致。
+
+向前看，我提倡考虑宏观市场，使用美国房价指数（US_HPI），30 年抵押贷款利率（M30）和标准普尔 500 指数（SP500）。
+
+我们将使用这些值来涵盖本系列的最后一部分：结合其他主要数据科学库。我们这里，我们将结合 Scikit Learn，看看我们是否能预测 HPI 的合理轨迹。这样做只是一个开始，但是之后要求我们使用类似的策略来继续下去，直到我们实际购买的房产的微观层面。无论如何，我们还是亿万富翁，生活是美好的。在我们继续之前，我们将最后一次运行这个代码，将其保存到一个`pickle`中，这样我们就不需要继续运行代码了。为了保存到`pickle`，只需把它放在脚本的末尾：
+
+```py
+HPI.to_pickle('HPI.pickle')
+```
