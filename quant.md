@@ -1181,3 +1181,373 @@ visualize_data()
 好吧，看看相关性，我们可以看到有很多关系。毫不奇怪，大多数公司正相关。有相当多的公司与其他公司有很强的相关性，还有相当多的公司是非常负相关的。甚至有一些公司与大多数公司呈负相关。我们也可以看到有很多公司完全没有关联。机会就是，投资于一群长期以来没有相关性的公司，将是一个多元化的合理方式，但我们现在还不知道。
 
 不管怎样，这个数据已经有很多关系了。人们必须怀疑，一台机器是否能够纯粹依靠这些关系来识别和交易。我们可以轻松成为百万富豪吗？！我们至少可以试试！
+
+## 九、处理数据，为机器学习做准备
+
+欢迎阅读 Python 金融教程系列的第 9 部分。在之前的教程中，我们介绍了如何拉取大量公司的股票价格数据，如何将这些数据合并为一个大型数据集，以及如何直观地表示所有公司之间的一种关系。现在，我们将尝试采用这些数据，并做一些机器学习！
+
+我们的想法是，看看如果我们获得所有当前公司的数据，并把这些数据扔给某种机器学习分类器，会发生什么。我们知道，随着时间的推移，各个公司彼此有着不同的练习，所以，如果机器能够识别并且拟合这些关系，那么我们可以从今天的价格变化中，预测明天会发生什么事情。咱们试试吧！
+
+首先，所有机器学习都是接受“特征集”，并尝试将其映射到“标签”。无论我们是做 K 最近邻居还是深度神经网络学习，这都是一样的。因此，我们需要将现有的数据转换为特征集和标签。
+
+我们的特征可以是其他公司的价格，但是我们要说的是，特征是所有公司当天的价格变化。我们的标签将是我们是否真的想买特定公司。假设我们正在考虑 Exxon（XOM）。我们要做的特征集是，考虑当天所有公司的百分比变化，这些都是我们的特征。我们的标签将是 Exxon（XOM）在接下来的`x`天内涨幅是否超过`x`%，我们可以为`x`选择任何我们想要的值。首先，假设一家公司在未来 7 天内价格上涨超过 2％，如果价格在这 7 天内下跌超过 2%，那么就卖出。
+
+这也是我们可以比较容易做出的一个策略。如果算法说了买入，我们可以买，放置 2% 的止损（基本上告诉交易所，如果价格跌破这个数字/或者如果你做空公司，价格超过这个数字，那么退出我的位置）。否则，公司一旦涨了 2% 就卖掉，或者保守地在 1% 卖掉，等等。无论如何，你可以比较容易地从这个分类器建立一个策略。为了开始，我们需要为我们的训练数据放入未来的价格。
+
+我将继续编写我们的脚本。如果这对您是个问题，请随时创建一个新文件并导入我们使用的函数。
+
+目前为止的完整代码：
+
+```py
+import bs4 as bs
+import datetime as dt
+import matplotlib.pyplot as plt
+from matplotlib import style
+import numpy as np
+import os
+import pandas as pd
+import pandas_datareader.data as web
+import pickle
+import requests
+
+style.use('ggplot')
+
+def save_sp500_tickers():
+    resp = requests.get('http://en.wikipedia.org/wiki/List_of_S%26P_500_companies')
+    soup = bs.BeautifulSoup(resp.text, 'lxml')
+    table = soup.find('table', {'class': 'wikitable sortable'})
+    tickers = []
+    for row in table.findAll('tr')[1:]:
+        ticker = row.findAll('td')[0].text
+        tickers.append(ticker)
+        
+    with open("sp500tickers.pickle","wb") as f:
+        pickle.dump(tickers,f)
+        
+    return tickers
+
+
+def get_data_from_yahoo(reload_sp500=False):
+    
+    if reload_sp500:
+        tickers = save_sp500_tickers()
+    else:
+        with open("sp500tickers.pickle","rb") as f:
+            tickers = pickle.load(f)
+    
+    if not os.path.exists('stock_dfs'):
+        os.makedirs('stock_dfs')
+
+    start = dt.datetime(2000, 1, 1)
+    end = dt.datetime(2016, 12, 31)
+    
+    for ticker in tickers:
+        # just in case your connection breaks, we'd like to save our progress!
+        if not os.path.exists('stock_dfs/{}.csv'.format(ticker)):
+            df = web.DataReader(ticker, "yahoo", start, end)
+            df.to_csv('stock_dfs/{}.csv'.format(ticker))
+        else:
+            print('Already have {}'.format(ticker))
+
+
+def compile_data():
+    with open("sp500tickers.pickle","rb") as f:
+        tickers = pickle.load(f)
+
+    main_df = pd.DataFrame()
+    
+    for count,ticker in enumerate(tickers):
+        df = pd.read_csv('stock_dfs/{}.csv'.format(ticker))
+        df.set_index('Date', inplace=True)
+
+        df.rename(columns={'Adj Close':ticker}, inplace=True)
+        df.drop(['Open','High','Low','Close','Volume'],1,inplace=True)
+
+        if main_df.empty:
+            main_df = df
+        else:
+            main_df = main_df.join(df, how='outer')
+
+        if count % 10 == 0:
+            print(count)
+    print(main_df.head())
+    main_df.to_csv('sp500_joined_closes.csv')
+
+
+def visualize_data():
+    df = pd.read_csv('sp500_joined_closes.csv')
+    #df['AAPL'].plot()
+    #plt.show()
+    df_corr = df.corr()
+    print(df_corr.head())
+    df_corr.to_csv('sp500corr.csv')
+    
+    data1 = df_corr.values
+    fig1 = plt.figure()
+    ax1 = fig1.add_subplot(111)
+
+    heatmap1 = ax1.pcolor(data1, cmap=plt.cm.RdYlGn)
+    fig1.colorbar(heatmap1)
+
+    ax1.set_xticks(np.arange(data1.shape[1]) + 0.5, minor=False)
+    ax1.set_yticks(np.arange(data1.shape[0]) + 0.5, minor=False)
+    ax1.invert_yaxis()
+    ax1.xaxis.tick_top()
+    column_labels = df_corr.columns
+    row_labels = df_corr.index
+    ax1.set_xticklabels(column_labels)
+    ax1.set_yticklabels(row_labels)
+    plt.xticks(rotation=90)
+    heatmap1.set_clim(-1,1)
+    plt.tight_layout()
+    #plt.savefig("correlations.png", dpi = (300))
+    plt.show()
+```
+
+继续，让我们开始处理一些数据，这将帮助我们创建我们的标签：
+
+```py
+def process_data_for_labels(ticker):
+    hm_days = 7
+    df = pd.read_csv('sp500_joined_closes.csv', index_col=0)
+    tickers = df.columns.values.tolist()
+    df.fillna(0, inplace=True)
+```
+
+这个函数接受一个参数：问题中的股票代码。 每个模型将在一家公司上训练。 接下来，我们想知道我们需要未来多少天的价格。 我们在这里选择 7。 现在，我们将读取我们过去保存的所有公司的收盘价的数据，获取现有的代码列表，现在我们将为缺失值数据填入 0。 这可能是你将来要改变的东西，但是现在我们将用 0 来代替。 现在，我们要抓取未来 7 天的百分比变化：
+
+
+```py
+   for i in range(1,hm_days+1):
+        df['{}_{}d'.format(ticker,i)] = (df[ticker].shift(-i) - df[ticker]) / df[ticker]
+```
+
+这为我们的特定股票创建新的数据帧的列，使用字符串格式化创建自定义名称。 我们获得未来值的方式是使用`.shift`，这基本上会使列向上或向下移动。 在这里，我们移动一个负值，这将选取该列，如果你可以看到它，它会把这个列向上移动`i`行。 这给了我们未来值，我们可以计算百分比变化。
+
+最后：
+
+```py
+    df.fillna(0, inplace=True)
+    return tickers, df
+```
+
+我们在这里准备完了，我们将返回代码和数据帧，并且我们正在创建一些特征集，我们的算法可以用它来尝试拟合和发现关系。
+
+我们的完整处理函数：
+
+
+```py
+def process_data_for_labels(ticker):
+    hm_days = 7
+    df = pd.read_csv('sp500_joined_closes.csv', index_col=0)
+    tickers = df.columns.values.tolist()
+    df.fillna(0, inplace=True)
+    
+    for i in range(1,hm_days+1):
+        df['{}_{}d'.format(ticker,i)] = (df[ticker].shift(-i) - df[ticker]) / df[ticker]
+        
+    df.fillna(0, inplace=True)
+    return tickers, df
+```
+
+在下一个教程中，我们将介绍如何创建我们的“标签”。
+
+## 十、十一、为机器学习标签创建目标
+
+欢迎阅读 Python 金融系列教程的第 10 部分（和第 11 部分）。 在之前的教程中，我们开始构建我们的标签，试图使用机器学习和 Python 来投资。 在本教程中，我们将使用我们上一次教程的内容，在准备就绪时实际生成标签。
+
+目前为止的代码：
+
+```py
+import bs4 as bs
+import datetime as dt
+import matplotlib.pyplot as plt
+from matplotlib import style
+import numpy as np
+import os
+import pandas as pd
+import pandas_datareader.data as web
+import pickle
+import requests
+
+style.use('ggplot')
+
+def save_sp500_tickers():
+    resp = requests.get('http://en.wikipedia.org/wiki/List_of_S%26P_500_companies')
+    soup = bs.BeautifulSoup(resp.text, 'lxml')
+    table = soup.find('table', {'class': 'wikitable sortable'})
+    tickers = []
+    for row in table.findAll('tr')[1:]:
+        ticker = row.findAll('td')[0].text
+        tickers.append(ticker)
+        
+    with open("sp500tickers.pickle","wb") as f:
+        pickle.dump(tickers,f)
+        
+    return tickers
+
+
+def get_data_from_yahoo(reload_sp500=False):
+    
+    if reload_sp500:
+        tickers = save_sp500_tickers()
+    else:
+        with open("sp500tickers.pickle","rb") as f:
+            tickers = pickle.load(f)
+    
+    if not os.path.exists('stock_dfs'):
+        os.makedirs('stock_dfs')
+
+    start = dt.datetime(2000, 1, 1)
+    end = dt.datetime(2016, 12, 31)
+    
+    for ticker in tickers:
+        # just in case your connection breaks, we'd like to save our progress!
+        if not os.path.exists('stock_dfs/{}.csv'.format(ticker)):
+            df = web.DataReader(ticker, "yahoo", start, end)
+            df.to_csv('stock_dfs/{}.csv'.format(ticker))
+        else:
+            print('Already have {}'.format(ticker))
+
+
+def compile_data():
+    with open("sp500tickers.pickle","rb") as f:
+        tickers = pickle.load(f)
+
+    main_df = pd.DataFrame()
+    
+    for count,ticker in enumerate(tickers):
+        df = pd.read_csv('stock_dfs/{}.csv'.format(ticker))
+        df.set_index('Date', inplace=True)
+
+        df.rename(columns={'Adj Close':ticker}, inplace=True)
+        df.drop(['Open','High','Low','Close','Volume'],1,inplace=True)
+
+        if main_df.empty:
+            main_df = df
+        else:
+            main_df = main_df.join(df, how='outer')
+
+        if count % 10 == 0:
+            print(count)
+    print(main_df.head())
+    main_df.to_csv('sp500_joined_closes.csv')
+
+
+def visualize_data():
+    df = pd.read_csv('sp500_joined_closes.csv')
+    #df['AAPL'].plot()
+    #plt.show()
+    df_corr = df.corr()
+    print(df_corr.head())
+    df_corr.to_csv('sp500corr.csv')
+    
+    data1 = df_corr.values
+    fig1 = plt.figure()
+    ax1 = fig1.add_subplot(111)
+
+    heatmap1 = ax1.pcolor(data1, cmap=plt.cm.RdYlGn)
+    fig1.colorbar(heatmap1)
+
+    ax1.set_xticks(np.arange(data1.shape[1]) + 0.5, minor=False)
+    ax1.set_yticks(np.arange(data1.shape[0]) + 0.5, minor=False)
+    ax1.invert_yaxis()
+    ax1.xaxis.tick_top()
+    column_labels = df_corr.columns
+    row_labels = df_corr.index
+    ax1.set_xticklabels(column_labels)
+    ax1.set_yticklabels(row_labels)
+    plt.xticks(rotation=90)
+    heatmap1.set_clim(-1,1)
+    plt.tight_layout()
+    #plt.savefig("correlations.png", dpi = (300))
+    plt.show()
+
+
+def process_data_for_labels(ticker):
+    hm_days = 7
+    df = pd.read_csv('sp500_joined_closes.csv', index_col=0)
+    tickers = df.columns.values.tolist()
+    df.fillna(0, inplace=True)
+    
+    for i in range(1,hm_days+1):
+        df['{}_{}d'.format(ticker,i)] = (df[ticker].shift(-i) - df[ticker]) / df[ticker]
+        
+    df.fillna(0, inplace=True)
+    return tickers, df
+```
+
+现在我们要创建一个创建标签的函数。 我们在这里有很多选择。 你可能希望有一些东西，它们指导购买，出售或持有，或者只是买或卖。 我要让我们实现前者。 基本上，如果价格在未来 7 天上涨超过 2%，那么我们会说这是买入。 如果在接下来的 7 天内下跌超过 2%，这是卖出。 如果这两者都不是，那么它就没有足够的动力，我们将会坚持我们的位置。 如果我们有这个公司的股份，我们什么都不做，我们坚持我们的位置。 如果我们没有该公司的股份，我们什么都不做，我们只是等待。 我们的函数是：
+
+```py
+def buy_sell_hold(*args):
+    cols = [c for c in args]
+    requirement = 0.02
+    for col in cols:
+        if col > requirement:
+            return 1
+        if col < -requirement:
+            return -1
+    return 0
+```
+
+我们在这里使用`args`，所以我们可以在这里接受任意数量的列。 这里的想法是我们要把这个函数映射到 Pandas `DataFrame`的列，这个列将成为我们的“标签”。 `-1`是卖出，0 是持有，1 是买入。 `*args`将是那些未来的价格变化列，我们感兴趣的是，是否我们能看到超过 2% 的双向移动。 请注意，这不是一个完美的函数。 例如，价格可能上涨 2%，然后下降 2%，我们可能没有为此做好准备，但现在就这样了。
+
+那么，让我们来生成我们的特征和标签！ 对于这个函数，我们将添加下面的导入：
+
+```py
+from collections import Counter
+```
+
+这将让我们在我们的数据集和算法预测中，看到类别的分布。 我们不想将高度不平衡的数据集扔给机器学习分类器，我们也想看看我们的分类器是否只预测一个类别。 我们下一函数是：
+
+```py
+def extract_featuresets(ticker):
+    tickers, df = process_data_for_labels(ticker)
+
+    df['{}_target'.format(ticker)] = list(map( buy_sell_hold,
+                                               df['{}_1d'.format(ticker)],
+                                               df['{}_2d'.format(ticker)],
+                                               df['{}_3d'.format(ticker)],
+                                               df['{}_4d'.format(ticker)],
+                                               df['{}_5d'.format(ticker)],
+                                               df['{}_6d'.format(ticker)],
+                                               df['{}_7d'.format(ticker)] ))
+```
+
+这个函数将接受任何股票代码，创建所需的数据集，并创建我们的“目标”列，这是我们的标签。 根据我们的函数和我们当如的列，目标列将为每行设置一个`-1`，`0`或`1`。 现在，我们可以得到分布：
+
+```py
+    vals = df['{}_target'.format(ticker)].values.tolist()
+    str_vals = [str(i) for i in vals]
+    print('Data spread:',Counter(str_vals))
+```
+
+清理我们的数据：
+
+```py
+    df.fillna(0, inplace=True)
+    df = df.replace([np.inf, -np.inf], np.nan)
+    df.dropna(inplace=True)
+```
+
+我们可能有一些完全丢失的数据，我们将用 0 代替。接下来，我们可能会有一些无限的数据，特别是如果我们计算了从 0 到任何东西的百分比变化。 我们将把无限值转换为`NaN`，然后我们将放弃`NaN`。 我们几乎已经准备好了，但现在我们的“特征”就是当天股票的价格。 只是静态的数字，真的没有什么可说的。 相反，更好的指标是当天每个公司的百分比变化。 这里的想法是，有些公司的价格会先于其他公司变化，而我们也可能从中获利。 我们会将股价转换为百分比变化：
+
+```py
+    df_vals = df[[ticker for ticker in tickers]].pct_change()
+    df_vals = df_vals.replace([np.inf, -np.inf], 0)
+    df_vals.fillna(0, inplace=True)
+```
+
+再次，小心无限的数字，然后填充其他缺失的数据，现在，最后，我们准备创建我们的特征和标签：
+
+```py
+    X = df_vals.values
+    y = df['{}_target'.format(ticker)].values
+    
+    return X,y,df
+```
+
+大写字母`X`包含我们的特征集（SP500 中每个公司的每日变化百分比）。 小写字母`y`是我们的“目标”或我们的“标签”。 基本上我们试图将我们的特征集映射到它。
+
+好吧，我们有了特征和标签，我们准备做一些机器学习，这将在下一个教程中介绍。
