@@ -393,3 +393,219 @@ plt.show()
 
 在接下来的几个教程中，我们将把可视化留到后面一些，然后专注于获取并处理数据。
 
+## 五、自动获取 SP500 列表
+
+欢迎阅读 Python 金融教程系列的第 5 部分。在本教程和接下来的几章中，我们将着手研究如何能够获取大量价格信息，以及如何一次处理所有这些数据。
+
+首先，我们需要一个公司名单。我可以给你一个清单，但实际上获得股票清单可能只是你可能遇到的许多挑战之一。在我们的案例中，我们需要一个 SP500 公司的 Python 列表。
+
+无论您是在寻找道琼斯公司，SP500 指数还是罗素 3000 指数，这些公司的信息都有可能在某个地方发布。您需要确保它是最新的，但是它可能还不是完美的格式。在我们的例子中，我们将从维基百科获取这个列表：`http://en.wikipedia.org/wiki/List_of_S%26P_500_companies`。
+
+维基百科中的代码/符号组织在一张表里面。为了解决这个问题，我们将使用 HTML 解析库，Beautiful Soup。如果你想了解更多，我有一个使用 Beautiful Soup 进行网页抓取的简短的四部分教程。
+
+首先，我们从一些导入开始：
+
+```py
+import bs4 as bs
+import pickle
+import requests
+```
+
+`bs4`是 Beautiful Soup，`pickle `是为了我们可以很容易保存这个公司的名单，而不是每次我们运行时都访问维基百科（但要记住，你需要及时更新这个名单！），我们将使用 `requests `从维基百科页面获取源代码。
+
+这是我们函数的开始：
+
+```py
+def save_sp500_tickers():
+    resp = requests.get('http://en.wikipedia.org/wiki/List_of_S%26P_500_companies')
+    soup = bs.BeautifulSoup(resp.text, 'lxml')
+    table = soup.find('table', {'class': 'wikitable sortable'})
+```
+
+首先，我们访问维基百科页面，并获得响应，其中包含我们的源代码。 为了处理源代码，我们想要访问`.text`属性，我们使用 BeautifulSoup 将其转为`soup`。 如果您不熟悉 BeautifulSoup 为您所做的工作，它基本上将源代码转换为一个 BeautifulSoup 对象，马上就可以看做一个典型的 Python 对象。
+
+有一次维基百科试图拒绝 Python 的访问。 目前，在我写这篇文章的时候，代码不改变协议头也能工作。 如果您发现原始源代码（`resp.text`）似乎不返回相同的页面，像您在家用计算机上看到的那样，请添加以下内容并更改`resp var`代码：
+
+```py
+    headers = {'User-Agent': 'Mozilla/5.0 (X11; Linux i686) AppleWebKit/537.17 (KHTML, like Gecko) Chrome/24.0.1312.27 Safari/537.17'}
+    resp = requests.get('http://en.wikipedia.org/wiki/List_of_S%26P_500_companies',
+                        headers=headers)
+```
+
+一旦我们有了`soup`，我们可以通过简单地搜索`wikitable sortable`类来找到股票数据表。 我知道指定这个表的唯一原因是，因为我之前在浏览器中查看了源代码。 可能会有这样的情况，你想解析一个不同的网站的股票列表，也许它是在一个表中，也可能是一个列表，或者可能是一些`div`标签。 这都是一个非常具体的解决方案。 从这里开始，我们仅仅遍历表格：
+
+```py
+    tickers = []
+    for row in table.findAll('tr')[1:]:
+        ticker = row.findAll('td')[0].text
+        tickers.append(ticker)
+```
+
+对于每一行，在标题行之后（这就是为什么我们要执行`[1:]`），我们说股票是“表格数据”（`td`），我们抓取它的`.text`， 将此代码添加到我们的列表中。
+
+现在，如果我们可以保存这个列表，那就好了。 我们将使用`pickle`模块来为我们序列化 Python 对象。
+
+```py
+    with open("sp500tickers.pickle","wb") as f:
+        pickle.dump(tickers,f)
+
+    return tickers
+```
+
+我们希望继续并保存它，因此我们无需每天多次请求维基百科。 在任何时候，我们可以更新这个清单，或者我们可以编程一个月检查一次...等等。
+
+目前为止的完整代码：
+
+```py
+import bs4 as bs
+import pickle
+import requests
+
+def save_sp500_tickers():
+    resp = requests.get('http://en.wikipedia.org/wiki/List_of_S%26P_500_companies')
+    soup = bs.BeautifulSoup(resp.text, 'lxml')
+    table = soup.find('table', {'class': 'wikitable sortable'})
+    tickers = []
+    for row in table.findAll('tr')[1:]:
+        ticker = row.findAll('td')[0].text
+        tickers.append(ticker)
+        
+    with open("sp500tickers.pickle","wb") as f:
+        pickle.dump(tickers,f)
+        
+    return tickers
+
+save_sp500_tickers()
+```
+
+现在我们已经知道了代码，我们已经准备好提取所有的信息，这是我们将在下一个教程中做的事情。
+
+## 六、获取 SP500 中所有公司的价格数据
+
+欢迎阅读 Python 金融教程系列的第 6 部分。 在之前的 Python 教程中，我们介绍了如何获取我们感兴趣的公司名单（在我们的案例中是 SP500），现在我们将获取所有这些公司的股票价格数据。
+
+目前为止的代码：
+
+```py
+def save_sp500_tickers():
+    resp = requests.get('http://en.wikipedia.org/wiki/List_of_S%26P_500_companies')
+    soup = bs.BeautifulSoup(resp.text, 'lxml')
+    table = soup.find('table', {'class': 'wikitable sortable'})
+    tickers = []
+    for row in table.findAll('tr')[1:]:
+        ticker = row.findAll('td')[0].text
+        tickers.append(ticker)
+        
+    with open("sp500tickers.pickle","wb") as f:
+        pickle.dump(tickers,f)
+        
+    return tickers
+```
+
+我们打算添加一些新的导入：
+
+```py
+import datetime as dt
+import os
+import pandas as pd
+import pandas_datareader.data as web
+```
+
+我们将使用`datetime`为 Pandas `datareader`指定日期，`os`用于检查并创建目录。 你已经知道 Pandas 干什么了！
+
+我们的新函数的开始：
+
+```py
+def get_data_from_yahoo(reload_sp500=False):
+    
+    if reload_sp500:
+        tickers = save_sp500_tickers()
+    else:
+        with open("sp500tickers.pickle","rb") as f:
+            tickers = pickle.load(f)
+```
+
+在这里，我将展示一个简单示例，可以处理是否重新加载 SP500 列表。 如果我们让它这样，这个程序将重新抓取 SP500，否则将只使用我们的`pickle`。 现在我们准备抓取数据。
+
+现在我们需要决定我们要处理的数据。 我倾向于尝试解析网站一次，并在本地存储数据。 我不会事先知道我可能用数据做的所有事情，但是我知道如果我不止一次地抓取它，我还可以保存它（除非它是一个巨大的数据集，但不是）。 因此，对于每一种股票，我们抓取所有雅虎可以返回给我们的东西，并保存下来。 为此，我们将创建一个新目录，并在那里存储每个公司的股票数据。 首先，我们需要这个初始目录：
+
+```py
+    if not os.path.exists('stock_dfs'):
+        os.makedirs('stock_dfs')
+```
+
+您可以将这些数据集存储在与您的脚本相同的目录中，但在我看来，这会变得非常混乱。 现在我们准备好提取数据了。 你已经知道如何实现，我们在第一个教程中完成了！
+
+```py
+    start = dt.datetime(2000, 1, 1)
+    end = dt.datetime(2016, 12, 31)
+    
+    for ticker in tickers:
+        if not os.path.exists('stock_dfs/{}.csv'.format(ticker)):
+            df = web.DataReader(ticker, "yahoo", start, end)
+            df.to_csv('stock_dfs/{}.csv'.format(ticker))
+        else:
+            print('Already have {}'.format(ticker))
+```
+
+你可能想要为这个函数传入`force_data_update`参数，因为现在它不会重新提取它已经访问的数据。 由于我们正在提取每日数据，所以您最好至少重新提取最新的数据。 也就是说，如果是这样的话，最好对每个公司使用数据库而不是表格，然后从 Yahoo 数据库中提取最新的值。 但是现在我们会保持简单！
+
+目前为止的代码：
+
+```py
+import bs4 as bs
+import datetime as dt
+import os
+import pandas as pd
+import pandas_datareader.data as web
+import pickle
+import requests
+
+
+def save_sp500_tickers():
+    resp = requests.get('http://en.wikipedia.org/wiki/List_of_S%26P_500_companies')
+    soup = bs.BeautifulSoup(resp.text, 'lxml')
+    table = soup.find('table', {'class': 'wikitable sortable'})
+    tickers = []
+    for row in table.findAll('tr')[1:]:
+        ticker = row.findAll('td')[0].text
+        tickers.append(ticker)
+        
+    with open("sp500tickers.pickle","wb") as f:
+        pickle.dump(tickers,f)
+        
+    return tickers
+
+#save_sp500_tickers()
+
+
+def get_data_from_yahoo(reload_sp500=False):
+    
+    if reload_sp500:
+        tickers = save_sp500_tickers()
+    else:
+        with open("sp500tickers.pickle","rb") as f:
+            tickers = pickle.load(f)
+    
+    if not os.path.exists('stock_dfs'):
+        os.makedirs('stock_dfs')
+
+    start = dt.datetime(2000, 1, 1)
+    end = dt.datetime(2016, 12, 31)
+    
+    for ticker in tickers:
+        # just in case your connection breaks, we'd like to save our progress!
+        if not os.path.exists('stock_dfs/{}.csv'.format(ticker)):
+            df = web.DataReader(ticker, "yahoo", start, end)
+            df.to_csv('stock_dfs/{}.csv'.format(ticker))
+        else:
+            print('Already have {}'.format(ticker))
+
+get_data_from_yahoo()
+```
+
+如果雅虎阻拦你的话。 在我写这篇文章的时候，雅虎并没有阻拦我，我能够毫无问题地完成这个任务。 但是这可能需要你一段时间，尤其取决于你的机器。 好消息是，我们不需要再做一遍！ 同样在实践中，因为这是每日数据，但是您可能每天都执行一次。
+
+另外，如果你的互联网速度很慢，你不需要获取所有的代码，即使只有 10 个就足够了，所以你可以用`ticker [:10]`或者类似的东西来加快速度。
+
+在下一个教程中，一旦你下载了数据，我们将把我们感兴趣的数据编译成一个大的 Pandas`DataFrame`。
