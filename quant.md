@@ -141,3 +141,255 @@ df[['High','Low']]
 
 在下一个教程中，我们将介绍这些数据的一些基本操作，以及一些更基本的可视化。
 
+## 三、基本的股票数据操作
+
+欢迎阅读 Python 金融系列教程的第 3 部分。 在本教程中，我们将使用我们的股票数据进一步拆分一些基本的数据操作和可视化。 我们将要使用的起始代码（在前面的教程中已经介绍过）是：
+
+```py
+import datetime as dt
+import matplotlib.pyplot as plt
+from matplotlib import style
+import pandas as pd
+import pandas_datareader.data as web
+style.use('ggplot')
+
+df = pd.read_csv('tsla.csv', parse_dates=True, index_col=0)
+```
+
+Pandas 模块配备了一堆可用的内置函数，以及创建自定义 Pandas 函数的方法。 稍后我们将介绍一些自定义函数，但现在让我们对这些数据执行一个非常常见的操作：移动均值。
+
+简单移动均值的想法是选取时间窗口，并计算该窗口内的均值。 然后我们把这个窗口移动一个周期，然后再做一次。 在我们这里，我们将计算 100 天滚动均值。 因此，这将选取当前价格和过去 99 天的价格，加起来，除以 100，之后就是当前的 100 天移动均值。 然后我们把窗口移动一天，然后再做同样的事情。 在 Pandas 中这样做很简单：
+
+```py
+df['100ma'] = df['Adj Close'].rolling(window=100).mean()
+```
+
+
+如果我们有一列叫做`100ma`，执行`df['100ma']`允许我们重新定义包含现有列的内容，否则创建一个新列，这就是我们在这里做的。 我们说`df['100ma']`列等同于应用滚动方法的`df['Adj Close']`列，窗口为 100，这个窗口将是` mean()`（均值）操作。
+
+现在，我们执行：
+
+```py
+print(df.head())
+```
+
+```
+                  Date       Open   High        Low      Close    Volume  \
+Date                                                                       
+2010-06-29  2010-06-29  19.000000  25.00  17.540001  23.889999  18766300   
+2010-06-30  2010-06-30  25.790001  30.42  23.299999  23.830000  17187100   
+2010-07-01  2010-07-01  25.000000  25.92  20.270000  21.959999   8218800   
+2010-07-02  2010-07-02  23.000000  23.10  18.709999  19.200001   5139800   
+2010-07-06  2010-07-06  20.000000  20.00  15.830000  16.110001   6866900   
+
+            Adj Close  100ma  
+Date                          
+2010-06-29  23.889999    NaN  
+2010-06-30  23.830000    NaN  
+2010-07-01  21.959999    NaN  
+2010-07-02  19.200001    NaN  
+2010-07-06  16.110001    NaN  
+```
+
+发生了什么？ 在`100ma`列中，我们只看到`NaN`。 我们选择了 100 移动均值，理论上需要 100 个之前的数据点进行计算，所以我们在这里没有任何前 100 行的数据。 `NaN`的意思是“不是一个数字”。 有了 Pandas，你可以决定对缺失数据做很多事情，但现在，我们只需要改变最小周期参数：
+
+```
+                  Date       Open   High        Low      Close    Volume  \
+Date                                                                       
+2010-06-29  2010-06-29  19.000000  25.00  17.540001  23.889999  18766300   
+2010-06-30  2010-06-30  25.790001  30.42  23.299999  23.830000  17187100   
+2010-07-01  2010-07-01  25.000000  25.92  20.270000  21.959999   8218800   
+2010-07-02  2010-07-02  23.000000  23.10  18.709999  19.200001   5139800   
+2010-07-06  2010-07-06  20.000000  20.00  15.830000  16.110001   6866900   
+
+            Adj Close      100ma  
+Date                              
+2010-06-29  23.889999  23.889999  
+2010-06-30  23.830000  23.860000  
+2010-07-01  21.959999  23.226666  
+2010-07-02  19.200001  22.220000  
+2010-07-06  16.110001  20.998000 
+```
+
+好吧，可以用，现在我们想看看它！ 但是我们已经看到了简单的图表，那么稍微复杂一些呢？
+
+```py
+ax1 = plt.subplot2grid((6,1), (0,0), rowspan=5, colspan=1)
+ax2 = plt.subplot2grid((6,1), (5,0), rowspan=1, colspan=1,sharex=ax1)
+```
+
+如果你想了解`subplot2grid`的更多信息，请查看 Matplotlib 教程的子图部分。
+
+基本上，我们说我们想要创建两个子图，而这两个子图都在`6x1`的网格中，我们有 6 行 1 列。 第一个子图从该网格上的`(0,0)`开始，跨越 5 行，并跨越 1 列。 下一个子图也在`6x1`网格上，但是从`(5,0)`开始，跨越 1 行和 1 列。 第二个子图带有`sharex = ax1`，这意味着`ax2`的`x`轴将始终与`ax1`的`x`轴对齐，反之亦然。 现在我们只是绘制我们的图形：
+
+```py
+ax1.plot(df.index, df['Adj Close'])
+ax1.plot(df.index, df['100ma'])
+ax2.bar(df.index, df['Volume'])
+
+plt.show()
+```
+
+在上面，我们在第一个子图中绘制了的`close`和`100ma`，第二个图中绘制`volume`。 我们的结果：
+
+![](https://pythonprogramming.net/static/images/finance/price_ma_and_volume_stock_graph_python.png)
+
+到这里的完整代码：
+
+```py
+import datetime as dt
+import matplotlib.pyplot as plt
+from matplotlib import style
+import pandas as pd
+import pandas_datareader.data as web
+style.use('ggplot')
+
+df = pd.read_csv('tsla.csv', parse_dates=True, index_col=0)
+df['100ma'] = df['Adj Close'].rolling(window=100, min_periods=0).mean()
+print(df.head())
+
+ax1 = plt.subplot2grid((6,1), (0,0), rowspan=5, colspan=1)
+ax2 = plt.subplot2grid((6,1), (5,0), rowspan=1, colspan=1, sharex=ax1)
+
+ax1.plot(df.index, df['Adj Close'])
+ax1.plot(df.index, df['100ma'])
+ax2.bar(df.index, df['Volume'])
+
+plt.show()
+```
+
+在接下来的几个教程中，我们将学习如何通过 Pandas 数据重采样制作烛台图，并学习更多使用 Matplotlib 的知识。
+
+## 四、更多股票操作
+
+欢迎阅读 Python 金融教程系列的第 4 部分。 在本教程中，我们将基于`Adj Close`列创建烛台/  OHLC 图，我将介绍重新采样和其他一些数据可视化概念。
+
+名为烛台图的 OHLC 图是一个图表，将开盘价，最高价，最低价和收盘价都汇总成很好的格式。 并且它使用漂亮的颜色，还记得我告诉你有关漂亮的图表的事情嘛？
+
+之前的教程中，目前为止的起始代码：
+
+```py
+import datetime as dt
+import matplotlib.pyplot as plt
+from matplotlib import style
+import pandas as pd
+import pandas_datareader.data as web
+style.use('ggplot')
+
+df = pd.read_csv('tsla.csv', parse_dates=True, index_col=0)
+```
+
+不幸的是，即使创建 OHLC 数据是这样，Pandas 没有内置制作烛台图的功能。 有一天，我确信这个图表类型将会可用，但是，现在不是。 没关系，我们会实现它！ 首先，我们需要做两个新的导入：
+
+```py
+from matplotlib.finance import candlestick_ohlc
+import matplotlib.dates as mdates
+```
+
+第一个导入是来自 matplotlib 的 OHLC 图形类型，第二个导入是特殊的`mdates`类型，它在对接中是个麻烦，但这是 matplotlib 图形的日期类型。 Pandas 自动为你处理，但正如我所说，我们没有那么方便的烛台。
+
+首先，我们需要适当的 OHLC 数据。 我们目前的数据确实有 OHLC 值，除非我错了，特斯拉从未有过拆分，但是你不会总是这么幸运。 因此，我们将创建我们自己的 OHLC 数据，这也将使我们能够展示来自 Pandas 的另一个数据转换：
+
+```py
+df_ohlc = df['Adj Close'].resample('10D').ohlc()
+```
+
+我们在这里所做的是，创建一个新的数据帧，基于`df ['Adj Close']`列，使用 10 天窗口重采样，并且重采样是一个 OHLC（开高低关）。我们也可以用`.mean()`或`.sum()`计算 10 天的均值，或 10 天的总和。请记住，这 10 天的均值是 10 天均值，而不是滚动均值。由于我们的数据是每日数据，重采样到 10 天的数据有效地缩小了我们的数据大小。这就是你规范多个数据集的方式。有时候，您可能会在每个月的第一天记录一次数据，在每个月末记录其他数据，最后每周记录一些数据。您可以将该数据帧重新采样到月底，并有效地规范化所有东西！这是一个更先进的 Padas 功能，如果你喜欢，你可以更多了解 Pandas 的序列。
+
+我们想要绘制烛台数据以及成交量数据。我们不需要将成交量数据重采样，但是我们应该这样做，因为与我们的`10D`价格数据相比，这个数据太细致了。
+
+```py
+df_volume = df['Volume'].resample('10D').sum()
+```
+
+我们在这里使用`sum`，因为我们真的想知道在这 10 天内交易总量，但也可以用平均值。 现在如果我们这样做：
+
+```py
+print(df_ohlc.head())
+```
+
+```
+                 open       high        low      close
+Date                                                  
+2010-06-29  23.889999  23.889999  15.800000  17.459999
+2010-07-09  17.400000  20.639999  17.049999  20.639999
+2010-07-19  21.910000  21.910000  20.219999  20.719999
+2010-07-29  20.350000  21.950001  19.590000  19.590000
+2010-08-08  19.600000  19.600000  17.600000  19.150000
+```
+
+这是预期，但是，我们现在要将这些信息移动到 matplotlib，并将日期转换为`mdates`版本。 由于我们只是要在 Matplotlib 中绘制列，我们实际上不希望日期成为索引，所以我们可以这样做：
+
+```py
+df_ohlc = df_ohlc.reset_index()
+```
+
+现在`dates `只是一个普通的列。 接下来，我们要转换它：
+
+```py
+df_ohlc['Date'] = df_ohlc['Date'].map(mdates.date2num)
+```
+
+现在我们打算配置图形：
+
+```py
+fig = plt.figure()
+ax1 = plt.subplot2grid((6,1), (0,0), rowspan=5, colspan=1)
+ax2 = plt.subplot2grid((6,1), (5,0), rowspan=1, colspan=1,sharex=ax1)
+ax1.xaxis_date()
+```
+
+除了`ax1.xaxis_date()`之外，你已经看到了一切。 这对我们来说，是把轴从原始的`mdate`数字转换成日期。
+
+现在我们可以绘制烛台图：
+
+```py
+candlestick_ohlc(ax1, df_ohlc.values, width=2, colorup='g')
+```
+
+之后是成交量：
+
+```py
+ax2.fill_between(df_volume.index.map(mdates.date2num),df_volume.values,0)
+```
+
+`fill_between`函数将绘制`x`，`y`，然后填充之间的内容。 在我们的例子中，我们选择 0。
+
+```py
+plt.show()
+```
+
+![](https://pythonprogramming.net/static/images/finance/candlestick_and_volume_graph_matplotlib.png)
+
+这个教程的完整代码：
+
+```py
+import datetime as dt
+import matplotlib.pyplot as plt
+from matplotlib import style
+from matplotlib.finance import candlestick_ohlc
+import matplotlib.dates as mdates
+import pandas as pd
+import pandas_datareader.data as web
+style.use('ggplot')
+
+df = pd.read_csv('tsla.csv', parse_dates=True, index_col=0)
+
+df_ohlc = df['Adj Close'].resample('10D').ohlc()
+df_volume = df['Volume'].resample('10D').sum()
+
+df_ohlc.reset_index(inplace=True)
+df_ohlc['Date'] = df_ohlc['Date'].map(mdates.date2num)
+
+ax1 = plt.subplot2grid((6,1), (0,0), rowspan=5, colspan=1)
+ax2 = plt.subplot2grid((6,1), (5,0), rowspan=1, colspan=1, sharex=ax1)
+ax1.xaxis_date()
+
+candlestick_ohlc(ax1, df_ohlc.values, width=5, colorup='g')
+ax2.fill_between(df_volume.index.map(mdates.date2num), df_volume.values, 0)
+plt.show()
+
+```
+
+在接下来的几个教程中，我们将把可视化留到后面一些，然后专注于获取并处理数据。
+
