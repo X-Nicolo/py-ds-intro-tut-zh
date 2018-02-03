@@ -1551,3 +1551,510 @@ def extract_featuresets(ticker):
 大写字母`X`包含我们的特征集（SP500 中每个公司的每日变化百分比）。 小写字母`y`是我们的“目标”或我们的“标签”。 基本上我们试图将我们的特征集映射到它。
 
 好吧，我们有了特征和标签，我们准备做一些机器学习，这将在下一个教程中介绍。
+
+## 十二、SP500 上的机器学习
+
+欢迎阅读 Python 金融系列教程的第 12 部分。 在之前的教程中，我们介绍了如何获取数据并创建特征集和标签，然后我们可以将其扔给机器学习算法，希望它能学会将一家公司的现有价格变化关系映射到未来的价格变化。
+
+在我们开始之前，我们目前为止的起始代码到：
+
+```py
+import bs4 as bs
+from collections import Counter
+import datetime as dt
+import matplotlib.pyplot as plt
+from matplotlib import style
+import numpy as np
+import os
+import pandas as pd
+import pandas_datareader.data as web
+import pickle
+import requests
+
+style.use('ggplot')
+
+def save_sp500_tickers():
+    resp = requests.get('http://en.wikipedia.org/wiki/List_of_S%26P_500_companies')
+    soup = bs.BeautifulSoup(resp.text, 'lxml')
+    table = soup.find('table', {'class': 'wikitable sortable'})
+    tickers = []
+    for row in table.findAll('tr')[1:]:
+        ticker = row.findAll('td')[0].text
+        tickers.append(ticker)
+        
+    with open("sp500tickers.pickle","wb") as f:
+        pickle.dump(tickers,f)
+        
+    return tickers
+
+
+def get_data_from_yahoo(reload_sp500=False):
+    
+    if reload_sp500:
+        tickers = save_sp500_tickers()
+    else:
+        with open("sp500tickers.pickle","rb") as f:
+            tickers = pickle.load(f)
+    
+    if not os.path.exists('stock_dfs'):
+        os.makedirs('stock_dfs')
+
+    start = dt.datetime(2000, 1, 1)
+    end = dt.datetime(2016, 12, 31)
+    
+    for ticker in tickers:
+        # just in case your connection breaks, we'd like to save our progress!
+        if not os.path.exists('stock_dfs/{}.csv'.format(ticker)):
+            df = web.DataReader(ticker, "yahoo", start, end)
+            df.to_csv('stock_dfs/{}.csv'.format(ticker))
+        else:
+            print('Already have {}'.format(ticker))
+
+
+def compile_data():
+    with open("sp500tickers.pickle","rb") as f:
+        tickers = pickle.load(f)
+
+    main_df = pd.DataFrame()
+    
+    for count,ticker in enumerate(tickers):
+        df = pd.read_csv('stock_dfs/{}.csv'.format(ticker))
+        df.set_index('Date', inplace=True)
+
+        df.rename(columns={'Adj Close':ticker}, inplace=True)
+        df.drop(['Open','High','Low','Close','Volume'],1,inplace=True)
+
+        if main_df.empty:
+            main_df = df
+        else:
+            main_df = main_df.join(df, how='outer')
+
+        if count % 10 == 0:
+            print(count)
+    print(main_df.head())
+    main_df.to_csv('sp500_joined_closes.csv')
+
+
+def visualize_data():
+    df = pd.read_csv('sp500_joined_closes.csv')
+    #df['AAPL'].plot()
+    #plt.show()
+    df_corr = df.corr()
+    print(df_corr.head())
+    df_corr.to_csv('sp500corr.csv')
+    
+    data1 = df_corr.values
+    fig1 = plt.figure()
+    ax1 = fig1.add_subplot(111)
+
+    heatmap1 = ax1.pcolor(data1, cmap=plt.cm.RdYlGn)
+    fig1.colorbar(heatmap1)
+
+    ax1.set_xticks(np.arange(data1.shape[1]) + 0.5, minor=False)
+    ax1.set_yticks(np.arange(data1.shape[0]) + 0.5, minor=False)
+    ax1.invert_yaxis()
+    ax1.xaxis.tick_top()
+    column_labels = df_corr.columns
+    row_labels = df_corr.index
+    ax1.set_xticklabels(column_labels)
+    ax1.set_yticklabels(row_labels)
+    plt.xticks(rotation=90)
+    heatmap1.set_clim(-1,1)
+    plt.tight_layout()
+    #plt.savefig("correlations.png", dpi = (300))
+    plt.show()
+
+
+def process_data_for_labels(ticker):
+    hm_days = 7
+    df = pd.read_csv('sp500_joined_closes.csv', index_col=0)
+    tickers = df.columns.values.tolist()
+    df.fillna(0, inplace=True)
+    
+    for i in range(1,hm_days+1):
+        df['{}_{}d'.format(ticker,i)] = (df[ticker].shift(-i) - df[ticker]) / df[ticker]
+        
+    df.fillna(0, inplace=True)
+    return tickers, df
+
+def buy_sell_hold(*args):
+    cols = [c for c in args]
+    requirement = 0.02
+    for col in cols:
+        if col > requirement:
+            return 1
+        if col < -requirement:
+            return -1
+    return 0
+
+
+def extract_featuresets(ticker):
+    tickers, df = process_data_for_labels(ticker)
+
+    df['{}_target'.format(ticker)] = list(map( buy_sell_hold,
+                                               df['{}_1d'.format(ticker)],
+                                               df['{}_2d'.format(ticker)],
+                                               df['{}_3d'.format(ticker)],
+                                               df['{}_4d'.format(ticker)],
+                                               df['{}_5d'.format(ticker)],
+                                               df['{}_6d'.format(ticker)],
+                                               df['{}_7d'.format(ticker)] ))
+
+
+    vals = df['{}_target'.format(ticker)].values.tolist()
+    str_vals = [str(i) for i in vals]
+    print('Data spread:',Counter(str_vals))
+
+    df.fillna(0, inplace=True)
+    df = df.replace([np.inf, -np.inf], np.nan)
+    df.dropna(inplace=True)
+
+    df_vals = df[[ticker for ticker in tickers]].pct_change()
+    df_vals = df_vals.replace([np.inf, -np.inf], 0)
+    df_vals.fillna(0, inplace=True)
+
+    X = df_vals.values
+    y = df['{}_target'.format(ticker)].values
+    
+    return X,y,df
+```
+
+我们打算添加以下导入：
+
+```py
+from sklearn import svm, cross_validation, neighbors
+from sklearn.ensemble import VotingClassifier, RandomForestClassifier
+```
+
+Sklearn 是一个机器学习框架。 如果你没有它，请确保你下载它：`pip install scikit-learn`。`svm import`是支持向量机，`cross_validation`可以让我们轻松地创建打乱的训练和测试样本，`neighbors`是 K 最近邻。 然后，我们引入了`VotingClassifier`和`RandomForestClassifier`。投票分类器正是它听起来的样子。 基本上，这是一个分类器，它可以让我们结合许多分类器，并允许他们分别对他们认为的特征集的类别进行“投票”。 随机森林分类器只是另一个分类器。 我们将在投票分类器中使用三个分类器。
+
+我们现在准备做一些机器学习，所以让我们开始我们的函数：
+
+```py
+def do_ml(ticker):
+    X, y, df = extract_featuresets(ticker)
+```
+
+我们已经有了我们的特征集和标签，现在我们想把它们打乱，训练，然后测试：
+
+```py
+    X_train, X_test, y_train, y_test = cross_validation.train_test_split(X,
+                                                        y,
+                                                        test_size=0.25)
+```
+
+这对我们来说是在打乱我们的数据（所以它没有任何特定的顺序），然后为我们创建训练和测试样本。 我们不想在我们相同的训练数据上“测试”这个算法。 如果我们这样做了，我们可能会比现实中做得更好。 我们想要在从来没有见过的数据上测试算法，看看我们是否真的有了一个可行的模型。
+
+现在我们可以从我们想要的任何分类器中进行选择，现在让我们选择 K 最近邻：
+
+```py
+    clf = neighbors.KNeighborsClassifier()
+```
+
+现在我们可以在我们的数据上`fit`（训练）分类器：
+
+```py
+    clf.fit(X_train, y_train)
+```
+
+这行会接受我们的`X`数据，拟合我们的`Y`数据，对于我们拥有的每一对`X`和`Y`。 一旦完成，我们可以测试它：
+
+```py
+    confidence = clf.score(X_test, y_test)
+```
+
+这将需要一些特征集`X_test`来预测，并查看它是否与我们的标签`y_test`相匹配。 它会以小数形式返回给我们百分比精度，其中`1.0`是 100%，`0.1`是 10% 准确。 现在我们可以输出一些更有用的信息：
+
+```py
+    print('accuracy:',confidence)
+    predictions = clf.predict(X_test)
+    print('predicted class counts:',Counter(predictions))
+    print()
+    print()
+```
+
+这将告诉我们准确性是什么，然后我们可以得到`X_testdata`的准确度，然后输出分布（使用`Counter`），所以我们可以看到我们的模型是否只是对一个类进行分类，这是很容易发生的事情。
+
+如果这个模型确实是成功的，我们可以用`pickle`保存它，并随时加载它，为它提供一些特征集，并用`clf.predict`得到一个预测结果，这将从单个特征集预测单个值， 从特征集列表中预测值列表。
+
+好的，我们已经准备好了！ 我们的目标是什么？ 随机挑选的东西应该是 33% 左右，因为我们在理论上总共有三选择，但实际上我们的模型是不可能真正平衡的。 让我们看一些例子，然后运行：
+
+```py
+do_ml('XOM')
+do_ml('AAPL')
+do_ml('ABT') 
+```
+
+```
+Data spread: Counter({'1': 1713, '-1': 1456, '0': 1108})
+accuracy: 0.375700934579
+predicted class counts: Counter({0: 404, -1: 393, 1: 273})
+
+
+Data spread: Counter({'1': 2098, '-1': 1830, '0': 349})
+accuracy: 0.4
+predicted class counts: Counter({-1: 644, 1: 339, 0: 87})
+
+
+Data spread: Counter({'1': 1690, '-1': 1483, '0': 1104})
+accuracy: 0.33738317757
+predicted class counts: Counter({-1: 383, 0: 372, 1: 315})
+```
+
+所以这些都比 33% 好，但是训练数据也不是很完美。 例如，我们可以看看第一个：
+
+```
+Data spread: Counter({'1': 1713, '-1': 1456, '0': 1108})
+accuracy: 0.375700934579
+predicted class counts: Counter({0: 404, -1: 393, 1: 273})
+```
+
+在这种情况下，如果模型只预测“买不买”？ 这应该是 1,713 正确比上 4,277，这实际上是比我们得到的更好的分数。 那另外两个呢？ 第二个是 AAPL，如果只是预测购买，至少在训练数据上是 49%。 如果只是在训练数据上预测购买与否，ABT 的准确率为 37%。
+
+所以，虽然我们的表现比 33% 好，但目前还不清楚这种模型是否比只说“购买”更好。 在实际交易中，这一切都可以改变。 例如，如果这种模型说了某件事是买入的话，期望在 7 天内上涨 2%，但是直到 8 天才会出现 2% 的涨幅，并且，该算法一直说买入或者 持有，那么这个模型就会受到惩罚。 在实际交易中，这样做还是可以的。 如果这个模型结果非常准确，情况也是如此。 实际上，交易模型完全可以是完全不同的东西。
+
+接下来，让我们尝试一下投票分类器。 所以，不是`clf = neighbors.KNeighborsClassifier()`，我们这样做：
+
+```py
+   clf = VotingClassifier([('lsvc',svm.LinearSVC()),
+                            ('knn',neighbors.KNeighborsClassifier()),
+                            ('rfor',RandomForestClassifier())])
+```
+
+新的输出：
+
+```py
+Data spread: Counter({'1': 1713, '-1': 1456, '0': 1108})
+accuracy: 0.379439252336
+predicted class counts: Counter({-1: 487, 1: 417, 0: 166})
+
+
+Data spread: Counter({'1': 2098, '-1': 1830, '0': 349})
+accuracy: 0.471028037383
+predicted class counts: Counter({1: 616, -1: 452, 0: 2})
+
+
+Data spread: Counter({'1': 1690, '-1': 1483, '0': 1104})
+accuracy: 0.378504672897
+predicted class counts: Counter({-1: 524, 1: 394, 0: 152})
+```
+
+在所有股票上，我们都有改进！ 这很好看。 我们还特别注意，使用所有算法的默认值。 这些算法中的每一个都有相当多的参数，我们可以花一些时间来调整，来获得更高的效果，并且至少可以打败“对一切东西都预测买入”。 也就是说，机器学习是一个巨大的话题，需要花费几个月时间才能讲完所有东西。 如果你想自己学习更多的算法，以便你可以调整它们，看看机器学习系列教程。 我们涵盖了一堆机器学习算法，它们背后是如何工作的，如何应用它们，然后如何使用原始的 Python 自己制作它们。 在你完成整个系列课程的时候，你应该能够很好地配置机器学习来应对各种挑战。
+
+目前为止的所有代码：
+
+
+```py
+import bs4 as bs
+from collections import Counter
+import datetime as dt
+import matplotlib.pyplot as plt
+from matplotlib import style
+import numpy as np
+import os
+import pandas as pd
+import pandas_datareader.data as web
+import pickle
+import requests
+from sklearn import svm, cross_validation, neighbors
+from sklearn.ensemble import VotingClassifier, RandomForestClassifier
+
+style.use('ggplot')
+
+def save_sp500_tickers():
+    resp = requests.get('http://en.wikipedia.org/wiki/List_of_S%26P_500_companies')
+    soup = bs.BeautifulSoup(resp.text, 'lxml')
+    table = soup.find('table', {'class': 'wikitable sortable'})
+    tickers = []
+    for row in table.findAll('tr')[1:]:
+        ticker = row.findAll('td')[0].text
+        tickers.append(ticker)
+        
+    with open("sp500tickers.pickle","wb") as f:
+        pickle.dump(tickers,f)
+        
+    return tickers
+
+
+def get_data_from_yahoo(reload_sp500=False):
+    
+    if reload_sp500:
+        tickers = save_sp500_tickers()
+    else:
+        with open("sp500tickers.pickle","rb") as f:
+            tickers = pickle.load(f)
+    
+    if not os.path.exists('stock_dfs'):
+        os.makedirs('stock_dfs')
+
+    start = dt.datetime(2000, 1, 1)
+    end = dt.datetime(2016, 12, 31)
+    
+    for ticker in tickers:
+        # just in case your connection breaks, we'd like to save our progress!
+        if not os.path.exists('stock_dfs/{}.csv'.format(ticker)):
+            df = web.DataReader(ticker, "yahoo", start, end)
+            df.to_csv('stock_dfs/{}.csv'.format(ticker))
+        else:
+            print('Already have {}'.format(ticker))
+
+
+def compile_data():
+    with open("sp500tickers.pickle","rb") as f:
+        tickers = pickle.load(f)
+
+    main_df = pd.DataFrame()
+    
+    for count,ticker in enumerate(tickers):
+        df = pd.read_csv('stock_dfs/{}.csv'.format(ticker))
+        df.set_index('Date', inplace=True)
+
+        df.rename(columns={'Adj Close':ticker}, inplace=True)
+        df.drop(['Open','High','Low','Close','Volume'],1,inplace=True)
+
+        if main_df.empty:
+            main_df = df
+        else:
+            main_df = main_df.join(df, how='outer')
+
+        if count % 10 == 0:
+            print(count)
+    print(main_df.head())
+    main_df.to_csv('sp500_joined_closes.csv')
+
+
+def visualize_data():
+    df = pd.read_csv('sp500_joined_closes.csv')
+    #df['AAPL'].plot()
+    #plt.show()
+    df_corr = df.corr()
+    print(df_corr.head())
+    df_corr.to_csv('sp500corr.csv')
+    
+    data1 = df_corr.values
+    fig1 = plt.figure()
+    ax1 = fig1.add_subplot(111)
+
+    heatmap1 = ax1.pcolor(data1, cmap=plt.cm.RdYlGn)
+    fig1.colorbar(heatmap1)
+
+    ax1.set_xticks(np.arange(data1.shape[1]) + 0.5, minor=False)
+    ax1.set_yticks(np.arange(data1.shape[0]) + 0.5, minor=False)
+    ax1.invert_yaxis()
+    ax1.xaxis.tick_top()
+    column_labels = df_corr.columns
+    row_labels = df_corr.index
+    ax1.set_xticklabels(column_labels)
+    ax1.set_yticklabels(row_labels)
+    plt.xticks(rotation=90)
+    heatmap1.set_clim(-1,1)
+    plt.tight_layout()
+    #plt.savefig("correlations.png", dpi = (300))
+    plt.show()
+
+
+def process_data_for_labels(ticker):
+    hm_days = 7
+    df = pd.read_csv('sp500_joined_closes.csv', index_col=0)
+    tickers = df.columns.values.tolist()
+    df.fillna(0, inplace=True)
+    
+    for i in range(1,hm_days+1):
+        df['{}_{}d'.format(ticker,i)] = (df[ticker].shift(-i) - df[ticker]) / df[ticker]
+        
+    df.fillna(0, inplace=True)
+    return tickers, df
+
+def buy_sell_hold(*args):
+    cols = [c for c in args]
+    requirement = 0.02
+    for col in cols:
+        if col > requirement:
+            return 1
+        if col < -requirement:
+            return -1
+    return 0
+
+
+def extract_featuresets(ticker):
+    tickers, df = process_data_for_labels(ticker)
+
+    df['{}_target'.format(ticker)] = list(map( buy_sell_hold,
+                                               df['{}_1d'.format(ticker)],
+                                               df['{}_2d'.format(ticker)],
+                                               df['{}_3d'.format(ticker)],
+                                               df['{}_4d'.format(ticker)],
+                                               df['{}_5d'.format(ticker)],
+                                               df['{}_6d'.format(ticker)],
+                                               df['{}_7d'.format(ticker)] ))
+
+
+    vals = df['{}_target'.format(ticker)].values.tolist()
+    str_vals = [str(i) for i in vals]
+    print('Data spread:',Counter(str_vals))
+
+    df.fillna(0, inplace=True)
+    df = df.replace([np.inf, -np.inf], np.nan)
+    df.dropna(inplace=True)
+
+    df_vals = df[[ticker for ticker in tickers]].pct_change()
+    df_vals = df_vals.replace([np.inf, -np.inf], 0)
+    df_vals.fillna(0, inplace=True)
+
+    X = df_vals.values
+    y = df['{}_target'.format(ticker)].values
+    
+    return X,y,df
+
+
+def do_ml(ticker):
+    X, y, df = extract_featuresets(ticker)
+
+    X_train, X_test, y_train, y_test = cross_validation.train_test_split(X,
+                                                        y,
+                                                        test_size=0.25)
+
+    #clf = neighbors.KNeighborsClassifier()
+
+    clf = VotingClassifier([('lsvc',svm.LinearSVC()),
+                            ('knn',neighbors.KNeighborsClassifier()),
+                            ('rfor',RandomForestClassifier())])
+
+
+    clf.fit(X_train, y_train)
+    confidence = clf.score(X_test, y_test)
+    print('accuracy:',confidence)
+    predictions = clf.predict(X_test)
+    print('predicted class counts:',Counter(predictions))
+    print()
+    print()
+    return confidence
+
+# examples of running:
+do_ml('XOM')
+do_ml('AAPL')
+do_ml('ABT')  
+```
+
+你也可以在所有代码上运行它：
+
+```py
+from statistics import mean
+
+with open("sp500tickers.pickle","rb") as f:
+    tickers = pickle.load(f)
+
+accuracies = []
+for count,ticker in enumerate(tickers):
+
+    if count%10==0:
+        print(count)
+        
+    accuracy = do_ml(ticker)
+    accuracies.append(accuracy)
+    print("{} accuracy: {}. Average accuracy:{}".format(ticker,accuracy,mean(accuracies)))
+```
+
+这将需要一段时间。 我继续做下去，结果平均准确率为 46.279%。 不错，但是从我这里看，结果对于任何形式的策略仍然是可疑的。
+
+在接下来的教程中，我们将深入测试交易策略。
