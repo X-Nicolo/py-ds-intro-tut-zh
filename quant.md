@@ -604,8 +604,580 @@ def get_data_from_yahoo(reload_sp500=False):
 get_data_from_yahoo()
 ```
 
-如果雅虎阻拦你的话。 在我写这篇文章的时候，雅虎并没有阻拦我，我能够毫无问题地完成这个任务。 但是这可能需要你一段时间，尤其取决于你的机器。 好消息是，我们不需要再做一遍！ 同样在实践中，因为这是每日数据，但是您可能每天都执行一次。
+运行它。如果雅虎阻拦你的话，你可能想添加`import time`和`time.sleep(0.5)`或一些东西。 在我写这篇文章的时候，雅虎并没有阻拦我，我能够毫无问题地完成这个任务。 但是这可能需要你一段时间，尤其取决于你的机器。 好消息是，我们不需要再做一遍！ 同样在实践中，因为这是每日数据，但是您可能每天都执行一次。
 
 另外，如果你的互联网速度很慢，你不需要获取所有的代码，即使只有 10 个就足够了，所以你可以用`ticker [:10]`或者类似的东西来加快速度。
 
 在下一个教程中，一旦你下载了数据，我们将把我们感兴趣的数据编译成一个大的 Pandas`DataFrame`。
+
+## 七、将所有 SP500 价格组合到一个`DataFrame`
+
+欢迎阅读 Python 金融系列教程的第 7 部分。 在之前的教程中，我们抓取了整个 SP500 公司的雅虎财经数据。 在本教程中，我们将把这些数据放在一个`DataFrame`中。
+
+目前为止的代码：
+
+```py
+import bs4 as bs
+import datetime as dt
+import os
+import pandas as pd
+import pandas_datareader.data as web
+import pickle
+import requests
+
+
+def save_sp500_tickers():
+    resp = requests.get('http://en.wikipedia.org/wiki/List_of_S%26P_500_companies')
+    soup = bs.BeautifulSoup(resp.text, 'lxml')
+    table = soup.find('table', {'class': 'wikitable sortable'})
+    tickers = []
+    for row in table.findAll('tr')[1:]:
+        ticker = row.findAll('td')[0].text
+        tickers.append(ticker)
+        
+    with open("sp500tickers.pickle","wb") as f:
+        pickle.dump(tickers,f)
+        
+    return tickers
+
+
+def get_data_from_yahoo(reload_sp500=False):
+    
+    if reload_sp500:
+        tickers = save_sp500_tickers()
+    else:
+        with open("sp500tickers.pickle","rb") as f:
+            tickers = pickle.load(f)
+    
+    if not os.path.exists('stock_dfs'):
+        os.makedirs('stock_dfs')
+
+    start = dt.datetime(2000, 1, 1)
+    end = dt.datetime(2016, 12, 31)
+    
+    for ticker in tickers:
+        # just in case your connection breaks, we'd like to save our progress!
+        if not os.path.exists('stock_dfs/{}.csv'.format(ticker)):
+            df = web.DataReader(ticker, "yahoo", start, end)
+            df.to_csv('stock_dfs/{}.csv'.format(ticker))
+        else:
+            print('Already have {}'.format(ticker))
+```
+
+虽然我们拥有了所有的数据，但是我们可能要一起评估数据。 为此，我们将把所有的股票数据组合在一起。 目前的每个股票文件都带有：开盘价，最高价，最低价，收盘价，成交量和调整收盘价。 至少在最开始，我们现在几乎只对调整收盘价感兴趣。
+
+```py
+def compile_data():
+    with open("sp500tickers.pickle","rb") as f:
+        tickers = pickle.load(f)
+
+    main_df = pd.DataFrame()
+```
+
+首先，我们获取我们以前生成的代码，并从一个叫做`main_df`的空`DataFrame`开始。 现在，我们准备读取每个股票的数据帧：
+
+```py
+    for count,ticker in enumerate(tickers):
+        df = pd.read_csv('stock_dfs/{}.csv'.format(ticker))
+        df.set_index('Date', inplace=True)
+```
+
+您不需要在这里使用 Python 的`enumerate `，我只是使用它，以便知道我们在读取所有数据的过程中的哪里。 你可以迭代代码。 到了这里，我们*可以*使用有趣的数据来生成额外的列，如：
+
+```py
+        df['{}_HL_pct_diff'.format(ticker)] = (df['High'] - df['Low']) / df['Low']
+        df['{}_daily_pct_chng'.format(ticker)] = (df['Close'] - df['Open']) / df['Open']
+```
+
+但是现在，我们不会因此而烦恼。 只要知道这可能是一条遵循之路。 相反，我们真的只是对`Adj Close`列感兴趣：
+
+```py
+        df.rename(columns={'Adj Close':ticker}, inplace=True)
+        df.drop(['Open','High','Low','Close','Volume'],1,inplace=True)
+```
+
+现在我们已经得到了这一列（或者像上面那样的额外列，但是请记住，在这个例子中，我们没有计算`HL_pct_diff`或`daily_pct_chng`）。 请注意，我们已将`Adj Close`列重命名为任何股票名称。 我们开始构建共享数据帧：
+
+```py
+        if main_df.empty:
+            main_df = df
+        else:
+            main_df = main_df.join(df, how='outer')
+```
+
+如果`main_df`中没有任何内容，那么我们将从当前的`df`开始，否则我们将使用 Pandas 的`join`。
+
+仍然在这个`for`循环中，我们将添加两行：
+
+```py
+        if count % 10 == 0:
+            print(count)
+```
+
+这将只输出当前的股票数量，如果它可以被 10 整除。`count % 10`计算被除数除以 10 的余数。所以，如果我们计算`count % 10 == 0`，并且如果当前计数能被 10 整除，余数为零，我们只有看到`if`语句为真。
+
+我们完成了`for`循环的时候：
+
+```py
+    print(main_df.head())
+    main_df.to_csv('sp500_joined_closes.csv')
+```
+
+目前为止的函数及其调用：
+
+```py
+    with open("sp500tickers.pickle","rb") as f:
+        tickers = pickle.load(f)
+
+    main_df = pd.DataFrame()
+    
+    for count,ticker in enumerate(tickers):
+        df = pd.read_csv('stock_dfs/{}.csv'.format(ticker))
+        df.set_index('Date', inplace=True)
+
+        df.rename(columns={'Adj Close':ticker}, inplace=True)
+        df.drop(['Open','High','Low','Close','Volume'],1,inplace=True)
+
+        if main_df.empty:
+            main_df = df
+        else:
+            main_df = main_df.join(df, how='outer')
+
+        if count % 10 == 0:
+            print(count)
+    print(main_df.head())
+    main_df.to_csv('sp500_joined_closes.csv')
+
+
+compile_data()
+```
+
+目前为止的完整代码：
+
+```py
+import bs4 as bs
+import datetime as dt
+import os
+import pandas as pd
+import pandas_datareader.data as web
+import pickle
+import requests
+
+
+def save_sp500_tickers():
+    resp = requests.get('http://en.wikipedia.org/wiki/List_of_S%26P_500_companies')
+    soup = bs.BeautifulSoup(resp.text, 'lxml')
+    table = soup.find('table', {'class': 'wikitable sortable'})
+    tickers = []
+    for row in table.findAll('tr')[1:]:
+        ticker = row.findAll('td')[0].text
+        tickers.append(ticker)
+        
+    with open("sp500tickers.pickle","wb") as f:
+        pickle.dump(tickers,f)
+        
+    return tickers
+
+
+def get_data_from_yahoo(reload_sp500=False):
+    
+    if reload_sp500:
+        tickers = save_sp500_tickers()
+    else:
+        with open("sp500tickers.pickle","rb") as f:
+            tickers = pickle.load(f)
+    
+    if not os.path.exists('stock_dfs'):
+        os.makedirs('stock_dfs')
+
+    start = dt.datetime(2000, 1, 1)
+    end = dt.datetime(2016, 12, 31)
+    
+    for ticker in tickers:
+        # just in case your connection breaks, we'd like to save our progress!
+        if not os.path.exists('stock_dfs/{}.csv'.format(ticker)):
+            df = web.DataReader(ticker, "yahoo", start, end)
+            df.to_csv('stock_dfs/{}.csv'.format(ticker))
+        else:
+            print('Already have {}'.format(ticker))
+
+
+def compile_data():
+    with open("sp500tickers.pickle","rb") as f:
+        tickers = pickle.load(f)
+
+    main_df = pd.DataFrame()
+    
+    for count,ticker in enumerate(tickers):
+        df = pd.read_csv('stock_dfs/{}.csv'.format(ticker))
+        df.set_index('Date', inplace=True)
+
+        df.rename(columns={'Adj Close':ticker}, inplace=True)
+        df.drop(['Open','High','Low','Close','Volume'],1,inplace=True)
+
+        if main_df.empty:
+            main_df = df
+        else:
+            main_df = main_df.join(df, how='outer')
+
+        if count % 10 == 0:
+            print(count)
+    print(main_df.head())
+    main_df.to_csv('sp500_joined_closes.csv')
+
+
+compile_data()
+```
+
+在下一个教程中，我们将尝试查看，是否可以快速找到数据中的任何关系。
+
+## 八、创建大型 SP500 公司相关性表
+
+欢迎阅读 Python 金融教程系列的第 8 部分。 在之前的教程中，我们展示了如何组合 SP500 公司的所有每日价格数据。 在本教程中，我们将看看是否可以找到任何有趣的关联数据。 为此，我们希望将其可视化，因为它是大量数据。 我们将使用 Matplotlib，以及 Numpy。
+
+目前为止的代码：
+
+```py
+import bs4 as bs
+import datetime as dt
+import os
+import pandas as pd
+import pandas_datareader.data as web
+import pickle
+import requests
+
+
+def save_sp500_tickers():
+    resp = requests.get('http://en.wikipedia.org/wiki/List_of_S%26P_500_companies')
+    soup = bs.BeautifulSoup(resp.text, 'lxml')
+    table = soup.find('table', {'class': 'wikitable sortable'})
+    tickers = []
+    for row in table.findAll('tr')[1:]:
+        ticker = row.findAll('td')[0].text
+        tickers.append(ticker)
+        
+    with open("sp500tickers.pickle","wb") as f:
+        pickle.dump(tickers,f)
+        
+    return tickers
+
+
+def get_data_from_yahoo(reload_sp500=False):
+    
+    if reload_sp500:
+        tickers = save_sp500_tickers()
+    else:
+        with open("sp500tickers.pickle","rb") as f:
+            tickers = pickle.load(f)
+    
+    if not os.path.exists('stock_dfs'):
+        os.makedirs('stock_dfs')
+
+    start = dt.datetime(2000, 1, 1)
+    end = dt.datetime(2016, 12, 31)
+    
+    for ticker in tickers:
+        # just in case your connection breaks, we'd like to save our progress!
+        if not os.path.exists('stock_dfs/{}.csv'.format(ticker)):
+            df = web.DataReader(ticker, "yahoo", start, end)
+            df.to_csv('stock_dfs/{}.csv'.format(ticker))
+        else:
+            print('Already have {}'.format(ticker))
+
+
+def compile_data():
+    with open("sp500tickers.pickle","rb") as f:
+        tickers = pickle.load(f)
+
+    main_df = pd.DataFrame()
+    
+    for count,ticker in enumerate(tickers):
+        df = pd.read_csv('stock_dfs/{}.csv'.format(ticker))
+        df.set_index('Date', inplace=True)
+
+        df.rename(columns={'Adj Close':ticker}, inplace=True)
+        df.drop(['Open','High','Low','Close','Volume'],1,inplace=True)
+
+        if main_df.empty:
+            main_df = df
+        else:
+            main_df = main_df.join(df, how='outer')
+
+        if count % 10 == 0:
+            print(count)
+    print(main_df.head())
+    main_df.to_csv('sp500_joined_closes.csv')
+
+
+compile_data()
+```
+
+现在我们打算添加下列导入并设置样式：
+
+```py
+import matplotlib.pyplot as plt
+from matplotlib import style
+import numpy as np
+
+style.use('ggplot')
+```
+
+下面我们开始构建 Matplotlib 函数：
+
+```py
+def visualize_data():
+    df = pd.read_csv('sp500_joined_closes.csv')
+```
+
+到了这里，我们可以绘制任何公司：
+
+```py
+    df['AAPL'].plot()
+    plt.show()
+```
+
+...但是我们没有浏览所有东西，就绘制单个公司！ 相反，让我们来看看所有这些公司的相关性。 在 Pandas 中建立相关性表实际上是非常简单的：
+
+```py
+    df_corr = df.corr()
+    print(df_corr.head())
+```
+
+这就是它了。`.corr()`会自动查看整个`DataFrame`，并确定每列与每列的相关性。 我已经看到付费的网站也把它做成服务。 所以，如果你需要一些副业的话，那么你可以用它！
+
+我们当然可以保存这个，如果我们想要的话：
+
+```py
+    df_corr.to_csv('sp500corr.csv')
+```
+
+相反，我们要绘制它。 为此，我们要生成一个热力图。 Matplotlib 中没有内置超级简单的热力图，但我们有工具可以制作。 为此，首先我们需要实际的数据来绘制：
+
+```py
+    data1 = df_corr.values
+```
+
+这会给我们这些数值的 NumPy 数组，它们是相关性的值。 接下来，我们将构建我们的图形和坐标轴：
+
+```py
+    fig1 = plt.figure()
+    ax1 = fig1.add_subplot(111)
+```
+
+现在我们使用`pcolor`来绘制热力图：
+
+```py
+    heatmap1 = ax1.pcolor(data1, cmap=plt.cm.RdYlGn)
+```
+
+这个热力图使用一系列的颜色来制作，这些颜色可以是任何东西到任何东西的范围，颜色比例由我们使用的`cmap`生成。 你可以在这里找到颜色映射的所有选项。 我们将使用`RdYlGn`，它是一个颜色映射，低端为红色，中间为黄色，较高部分为绿色，这将负相关表示为红色，正相关为绿色，无关联为黄色。 我们将添加一个边栏，是个作为“比例尺”的颜色条：
+
+```py
+    fig1.colorbar(heatmap1)
+```
+
+接下来，我们将设置我们的`x`和`y`轴刻度，以便我们知道哪个公司是哪个，因为现在我们只是绘制了数据：
+
+```py
+    ax1.set_xticks(np.arange(data1.shape[1]) + 0.5, minor=False)
+    ax1.set_yticks(np.arange(data1.shape[0]) + 0.5, minor=False)
+```
+
+这样做只是为我们创建刻度。 我们还没有任何标签。
+
+现在我们添加：
+
+```py
+    ax1.invert_yaxis()
+    ax1.xaxis.tick_top()
+```
+
+这会翻转我们的`yaxis`，所以图形更容易阅读，因为`x`和`y`之间会有一些空格。 一般而言，matplotlib 会在图的一端留下空间，因为这往往会使图更容易阅读，但在我们的情况下，却没有。 然后我们也把`xaxis`翻转到图的顶部，而不是传统的底部，同样使这个更像是相关表应该的样子。 现在我们实际上将把公司名称添加到当前没有名字的刻度中：
+
+```py
+    column_labels = df_corr.columns
+    row_labels = df_corr.index
+    ax1.set_xticklabels(column_labels)
+    ax1.set_yticklabels(row_labels)
+```
+
+在这里，我们可以使用两边完全相同的列表，因为`column_labels`和`row_lables`应该是相同的列表。 但是，对于所有的热力图而言，这并不总是正确的，所以我决定将其展示为，数据帧的任何热力图的正确方法。 最后：
+
+```py
+    plt.xticks(rotation=90)
+    heatmap1.set_clim(-1,1)
+    plt.tight_layout()
+    #plt.savefig("correlations.png", dpi = (300))
+    plt.show()
+```
+
+我们旋转`xticks`，这实际上是代码本身，因为通常他们会超出区域。 我们在这里有超过 500 个标签，所以我们要将他们旋转 90 度，所以他们是垂直的。 这仍然是一个图表，它太大了而看不清所有东西，但没关系。 `heatmap1.set_clim(-1,1)`那一行只是告诉`colormap`，我们的范围将从`-1`变为正`1`。应该已经是这种情况了，但是我们想确定一下。 没有这一行，它应该仍然是你的数据集的最小值和最大值，所以它本来是非常接近的。
+
+所以我们完成了！ 到目前为止的函数：
+
+```py
+def visualize_data():
+    df = pd.read_csv('sp500_joined_closes.csv')
+    #df['AAPL'].plot()
+    #plt.show()
+    df_corr = df.corr()
+    print(df_corr.head())
+    df_corr.to_csv('sp500corr.csv')
+    
+    data1 = df_corr.values
+    fig1 = plt.figure()
+    ax1 = fig1.add_subplot(111)
+
+    heatmap1 = ax1.pcolor(data1, cmap=plt.cm.RdYlGn)
+    fig1.colorbar(heatmap1)
+
+    ax1.set_xticks(np.arange(data1.shape[1]) + 0.5, minor=False)
+    ax1.set_yticks(np.arange(data1.shape[0]) + 0.5, minor=False)
+    ax1.invert_yaxis()
+    ax1.xaxis.tick_top()
+    column_labels = df_corr.columns
+    row_labels = df_corr.index
+    ax1.set_xticklabels(column_labels)
+    ax1.set_yticklabels(row_labels)
+    plt.xticks(rotation=90)
+    heatmap1.set_clim(-1,1)
+    plt.tight_layout()
+    #plt.savefig("correlations.png", dpi = (300))
+    plt.show()
+    
+visualize_data()
+```
+
+以及目前为止的完整代码：
+
+```py
+import bs4 as bs
+import datetime as dt
+import matplotlib.pyplot as plt
+from matplotlib import style
+import numpy as np
+import os
+import pandas as pd
+import pandas_datareader.data as web
+import pickle
+import requests
+
+style.use('ggplot')
+
+def save_sp500_tickers():
+    resp = requests.get('http://en.wikipedia.org/wiki/List_of_S%26P_500_companies')
+    soup = bs.BeautifulSoup(resp.text, 'lxml')
+    table = soup.find('table', {'class': 'wikitable sortable'})
+    tickers = []
+    for row in table.findAll('tr')[1:]:
+        ticker = row.findAll('td')[0].text
+        tickers.append(ticker)
+        
+    with open("sp500tickers.pickle","wb") as f:
+        pickle.dump(tickers,f)
+        
+    return tickers
+
+
+def get_data_from_yahoo(reload_sp500=False):
+    
+    if reload_sp500:
+        tickers = save_sp500_tickers()
+    else:
+        with open("sp500tickers.pickle","rb") as f:
+            tickers = pickle.load(f)
+    
+    if not os.path.exists('stock_dfs'):
+        os.makedirs('stock_dfs')
+
+    start = dt.datetime(2000, 1, 1)
+    end = dt.datetime(2016, 12, 31)
+    
+    for ticker in tickers:
+        # just in case your connection breaks, we'd like to save our progress!
+        if not os.path.exists('stock_dfs/{}.csv'.format(ticker)):
+            df = web.DataReader(ticker, "yahoo", start, end)
+            df.to_csv('stock_dfs/{}.csv'.format(ticker))
+        else:
+            print('Already have {}'.format(ticker))
+
+
+def compile_data():
+    with open("sp500tickers.pickle","rb") as f:
+        tickers = pickle.load(f)
+
+    main_df = pd.DataFrame()
+    
+    for count,ticker in enumerate(tickers):
+        df = pd.read_csv('stock_dfs/{}.csv'.format(ticker))
+        df.set_index('Date', inplace=True)
+
+        df.rename(columns={'Adj Close':ticker}, inplace=True)
+        df.drop(['Open','High','Low','Close','Volume'],1,inplace=True)
+
+        if main_df.empty:
+            main_df = df
+        else:
+            main_df = main_df.join(df, how='outer')
+
+        if count % 10 == 0:
+            print(count)
+    print(main_df.head())
+    main_df.to_csv('sp500_joined_closes.csv')
+
+
+def visualize_data():
+    df = pd.read_csv('sp500_joined_closes.csv')
+    #df['AAPL'].plot()
+    #plt.show()
+    df_corr = df.corr()
+    print(df_corr.head())
+    df_corr.to_csv('sp500corr.csv')
+    
+    data1 = df_corr.values
+    fig1 = plt.figure()
+    ax1 = fig1.add_subplot(111)
+
+    heatmap1 = ax1.pcolor(data1, cmap=plt.cm.RdYlGn)
+    fig1.colorbar(heatmap1)
+
+    ax1.set_xticks(np.arange(data1.shape[1]) + 0.5, minor=False)
+    ax1.set_yticks(np.arange(data1.shape[0]) + 0.5, minor=False)
+    ax1.invert_yaxis()
+    ax1.xaxis.tick_top()
+    column_labels = df_corr.columns
+    row_labels = df_corr.index
+    ax1.set_xticklabels(column_labels)
+    ax1.set_yticklabels(row_labels)
+    plt.xticks(rotation=90)
+    heatmap1.set_clim(-1,1)
+    plt.tight_layout()
+    #plt.savefig("correlations.png", dpi = (300))
+    plt.show()
+    
+visualize_data()
+```
+
+我们的劳动果实：
+
+![](https://pythonprogramming.net/static/images/finance/correlation-graph.jpg)
+
+这是很大一个果实。
+
+所以我们可以使用放大镜来放大：
+
+![](https://pythonprogramming.net/static/images/finance/how-to-zoom.jpg)
+
+如果你单击它，你可以单击并拖动要放大的框。 这个图表上的框很难看清楚，只知道它在那里。 点击，拖动，释放，你应该放大了，看到像这样的东西：
+
+![](https://pythonprogramming.net/static/images/finance/zoomed-correlation-example.png)
+
+你可以从这里移动，使用十字箭头按钮：
+
+![](https://pythonprogramming.net/static/images/finance/how-to-move.png)
+
+您也可以通过点击主屏幕按钮返回到原始的完整图形。您也可以使用前进和后退按钮“前进”和“后退”到前一个视图。您可以通过点击软盘来保存它。我想知道我们使用软盘的图像来描绘保存东西，有多久了。多久之后人们完全不知道软盘是什么？
+
+好吧，看看相关性，我们可以看到有很多关系。毫不奇怪，大多数公司正相关。有相当多的公司与其他公司有很强的相关性，还有相当多的公司是非常负相关的。甚至有一些公司与大多数公司呈负相关。我们也可以看到有很多公司完全没有关联。机会就是，投资于一群长期以来没有相关性的公司，将是一个多元化的合理方式，但我们现在还不知道。
+
+不管怎样，这个数据已经有很多关系了。人们必须怀疑，一台机器是否能够纯粹依靠这些关系来识别和交易。我们可以轻松成为百万富豪吗？！我们至少可以试试！
