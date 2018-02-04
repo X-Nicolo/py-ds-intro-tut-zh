@@ -2210,3 +2210,102 @@ def handle_data(context,data):
 
 在下一个教程中，我们将讨论下订单。
 
+## 十四、使用 Quantopian 下达交易订单
+
+欢迎阅读 Python 金融系列教程的第 14 部分，使用 Quantopian。 在本教程中，我们将介绍如何实际下单（股票/卖出/做空）。
+
+到目前为止，我们有以下代码：
+
+```py
+def initialize(context):
+    context.aapl = sid(24)
+    
+def handle_data(context,data):
+    
+    # prices for aapl for the last 50 days, in 1 day intervals
+    hist = data.history(context.aapl,'price', 50, '1d')
+    
+    # mean of the entire 50 day history
+    sma_50 = hist.mean()
+    
+    # mean of just the last 50 days
+    sma_20 = hist[-20:].mean()
+```
+
+我们到目前为止所做的，定义了什么是`context.aapl`，然后我们抓取了 AAPL 的历史价格，并且使用这些价格生成了一些代码，在每个时间间隔计算 50 和 20 简单移动均值。 我们的计划是制定一个简单的移动均值交叉策略，我们几乎准备完毕了。 逻辑应该简单：如果 20SMA 大于 50SMA，那么价格在上涨，我们想在这时候买入！ 如果 20SMA 低于 50SMA，那么价格将下跌，我们想做空这个公司（下注）。 让我们建立一个订单系统来反映这一点：
+
+```py
+    if sma_20 > sma_50:
+        order_target_percent(context.aapl, 1.0)
+    elif sma_20 < sma_50:
+        order_target_percent(context.aapl, -1.0)
+```
+
+`order_target_percent`函数用于让我们将一定比例的投资组合投资到一家公司。 在这种情况下，我们唯一考虑的公司是 Apple（AAPL），所以我们使用了 1.0（100％）。 下单有很多方法，这只是其中的一个。 我们可以做市场订单，订特定的金额，订百分比，订目标价值，当然也可以取消未成交的订单。 在这种情况下，我们期望在每一步都简单地买入/卖出 100% 的股份。 如果我们运行它，我们会得到：
+
+![](https://pythonprogramming.net/static/images/finance/python-quantopian-investing-pitfalls.png)
+
+太棒了！我们会变富！
+
+只是没有用这个策略。
+
+当你第一次写一个算法，特别是在开始时，这样的事情很可能发生。也许这对你有利，或者你失去了 1000% 的起始资金，你想知道发生了什么。在这种情况下，很容易发现它。首先，我们的回报是不可能的，而且，根据 Quantopian 的基本读数，我们可以看到，当我们启动资金是 100 万美元时，我们现在正在做的交易达到数千万美元，甚至数亿美元。
+
+那么这里发生了什么？ Quantopian 是为了让你做任何你想做的事情而建立的，对“贷款”没有任何限制。当你借贷在金融世界投资时，通常被称为杠杆。这个帐户的杠杆严重，这正是我们所要求的。
+
+学习如何诊断它，并在未来避免它非常重要！
+
+第一步几乎总是记录杠杆。现在我们来做：
+
+```py
+def initialize(context):
+    context.aapl = sid(24)
+    
+def handle_data(context,data):
+    hist = data.history(context.aapl,'price', 50, '1d')
+    
+    sma_50 = hist.mean()
+    sma_20 = hist[-20:].mean()
+    
+    if sma_20 > sma_50:
+        order_target_percent(context.aapl, 1.0)
+    elif sma_20 < sma_50:
+        order_target_percent(context.aapl, -1.0)
+        
+    record(leverage = context.account.leverage)
+```
+
+有了记录，我们可以跟踪五个值。 这里，我们仅仅选择一个。 我们正在查看我们的帐户的杠杆，我们在`context.account.leverage`中自动跟踪它。 你可以看到其他选项，只需通过`context`。 或`context.account`， 等等，来使用自动完成查看你的选择是什么。 您也可以使用记录来跟踪其他值，这仅仅是一个例子。
+
+只要运行一下，我们就能看到杠杆确实无法控制：
+
+![](https://pythonprogramming.net/static/images/finance/leverage-python-quantopian-tutorial.png)
+
+好的，所以我们已经杠杆过多。 究竟发生了什么？ 好吧，对于一个人，这个`handle_data`函数每分钟都运行。 因此，我们每分钟都可以合理下单，在这里，它下单了投资组合的 100%。 我们认为我们是安全的，因为我们正在下单一个目标百分比。 如果目标百分比是 100%，那么我们为什么会得到这么多呢？ 问题是，订单实际填充可能需要时间。 因此，一个订单正在等待填充，另一个正在同时进行！
+
+我们可能想要避免的第一件事，就是使用`get_open_orders()`方法，如下所示：
+
+```py
+    open_orders = get_open_orders()
+    
+    if sma_20 > sma_50:
+        if context.aapl not in open_orders:
+            order_target_percent(context.aapl, 1.0)
+    elif sma_20 < sma_50:
+        if context.aapl not in open_orders:
+            order_target_percent(context.aapl, -1.0)
+```
+
+现在，在每个订单之前，我们检查是否有这个公司的未完成订单。 让我们来运行它。
+
+需要注意的一点是，除非您阅读文档，否则确实没有办法知道存在`get_open_orders()`。 我会告诉你很多方法和函数，但是我当然不会把它们全部涵盖。 一定要确保你浏览了 Quantopian API 文档，看看你有什么可用的。 你不需要全部阅读，只需浏览一遍，并阅读注意到的函数。 函数/方法是红色的，所以当你浏览的时候很容易捕捉它们。
+
+这次运行的结果：
+
+![](https://pythonprogramming.net/static/images/finance/leverage-under-control.png)
+
+你看到的偏差是`1 +/- 0.0001`。 正如我们所希望的那样，在这次的所有时间中，我们有效使杠杆保持为 1，但是......呃......那个回报不是非常好！
+
+通过点击左侧导航栏中的“交易详情”，我们可以看到一件事情，那就是我们每天都在做很多交易。 我们可以看到我们的一些交易量也相当大，有时差不多有 1000 万美元。 这里发生了什么事？ 我们也认为我们最好每天只进行一次交易。
+
+相反，`handle_data`函数每分钟运行一次，所以，我们实际上仍然可能每分钟进行一次交易。 如果我们希望做的事情，不是每分钟都在评估市场的话，我们实际上可能打算调度这个函数。 幸运的是，我们可以这样做，这是下一个教程的主题！
