@@ -2058,3 +2058,155 @@ for count,ticker in enumerate(tickers):
 这将需要一段时间。 我继续做下去，结果平均准确率为 46.279%。 不错，但是从我这里看，结果对于任何形式的策略仍然是可疑的。
 
 在接下来的教程中，我们将深入测试交易策略。
+
+## 十三、使用 Quantopian 测试交易策略
+
+欢迎阅读 Python 金融系列教程的第 13 部分。在本教程中，我们将开始谈论策略回测。回测领域和正确执行的要求是相当大的。基本上，我们需要创建一个系统，接受历史价格数据并在该环境中模拟交易，然后给我们结果。这听起来可能很简单，但为了分析策略，我们需要跟踪一系列指标，比如我们卖出什么，什么时候交易，我们的 Beta 和 Alpha 是什么，以及其他指标如 drawdown，夏普比，波动率，杠杆等等。除此之外，我们通常希望能够看到所有这些。所以，我们可以自己写所有这些，也可以用一个平台来帮助我们...
+
+这就是为什么我们要介绍 Quantopian，这是一个平台，可以让我们轻松地使用 Python 编写和回测交易策略。
+
+Quantopian 所做的是，在 Python 的 Zipline 回测库之上增加了一个 GUI 层，也带有大量的数据源，其中很多都是完全免费的。如果您符合特定标准，您还可以通过将您的策略授权给他们，从 Quantopian 获得资金。一般来说，`-0.3`到`+0.3`之间的 β 值是一个很好的起点，但是您还需要有其他健康的指标来竞争。稍后再介绍一下 Quantopian 的基础知识。由于 Quantopian 主要由 Zipline，Alphalens 和 Pyfolio 等开源库支持，如果您愿意，还可以在本地运行类似 Quantopian 的平台。我发现大多数人都对此感兴趣，来保持其算法的私密性。 Quantopian 不会查看您的算法，除非您授予他们权限，而社区只有在您分享算法时才会看到您的算法。我强烈建议你把自己和 Quantopian 的关系看作是一种合作关系，而不是竞争关系。如果您想出了一些高质量的策略，Quantopian 非常乐意与您合作，并且用资金投资您。在这种关系中，Quantopian 将平台，资金和其他专家带到这个领域来帮助你，在我看来这是一个相当不错的交易。
+
+首先，前往`quantopian.com`，如果你没有帐户就创建一个，并登录。随意点一点鼠标。 Quantopian 社区论坛是吸收一些知识的好地方。 Quantopian 也经常举办带现金奖励的比赛。我们将从算法开始。到了那里，选择蓝色的“新算法”按钮。现在，我们将把我们大部分时间花在两个地方，这可以在“我的代码”按钮下找到。首先，我们将访问算法，并使用蓝色的“新算法”按钮创建一个新的算法。
+
+![](https://pythonprogramming.net/static/images/finance/clone-sample-algorithms.png)
+
+当你创建算法时，你应该被带到你的实时编辑算法页面，并带有克隆的算法，看起来像这样（除了彩色框），以及 UI 的一些可能的更改。
+
+![](https://pythonprogramming.net/static/images/finance/quantopian-algorithmic-development.png)
+
+Python编辑器 - 这是您为算法编写 Python 逻辑的地方。
+构建算法结果 - 当您构建算法时，图形结果将在这里出现。
+日志/错误输出 - 任何控制台输出/日志信息将在这里。 您的程序通常会输出各种文本来调试，或者只是为了获取更多信息。
+构建算法 - 使用它来快速测试你写的东西。 结果不会被保存，但是您可以在“内置算法结果”部分看到结果。
+完整的回测 - 这将根据您当前的算法运行完整的回测。 完整的回测会提供更多分析，结果将被保存，并且生成这些结果的算法也会被保存，所以您可以返回去浏览回测，并查看生成特定结果的具体代码。
+
+起始示例代码如下所示：
+
+```py
+"""
+This is a template algorithm on Quantopian for you to adapt and fill in.
+"""
+from quantopian.algorithm import attach_pipeline, pipeline_output
+from quantopian.pipeline import Pipeline
+from quantopian.pipeline.data.builtin import USEquityPricing
+from quantopian.pipeline.factors import AverageDollarVolume
+ 
+def initialize(context):
+    """
+    Called once at the start of the algorithm.
+    """   
+    # Rebalance every day, 1 hour after market open.
+    schedule_function(my_rebalance, date_rules.every_day(), time_rules.market_open(hours=1))
+     
+    # Record tracking variables at the end of each day.
+    schedule_function(my_record_vars, date_rules.every_day(), time_rules.market_close())
+     
+    # Create our dynamic stock selector.
+    attach_pipeline(make_pipeline(), 'my_pipeline')
+         
+def make_pipeline():
+    """
+    A function to create our dynamic stock selector (pipeline). Documentation on
+    pipeline can be found here: https://www.quantopian.com/help#pipeline-title
+    """
+    
+     
+    # Create a dollar volume factor.
+    dollar_volume = AverageDollarVolume(window_length=1)
+ 
+    # Pick the top 1% of stocks ranked by dollar volume.
+    high_dollar_volume = dollar_volume.percentile_between(99, 100)
+     
+    pipe = Pipeline(
+        screen = high_dollar_volume,
+        columns = {
+            'dollar_volume': dollar_volume
+        }
+    )
+    return pipe
+ 
+def before_trading_start(context, data):
+    """
+    Called every day before market open.
+    """
+    context.output = pipeline_output('my_pipeline')
+  
+    # These are the securities that we are interested in trading each day.
+    context.security_list = context.output.index
+     
+def my_assign_weights(context, data):
+    """
+    Assign weights to securities that we want to order.
+    """
+    pass
+ 
+def my_rebalance(context,data):
+    """
+    Execute orders according to our schedule_function() timing. 
+    """
+    pass
+ 
+def my_record_vars(context, data):
+    """
+    Plot variables at the end of each day.
+    """
+    pass
+ 
+def handle_data(context,data):
+    """
+    Called every minute.
+    """
+    pass
+```
+
+这很好，但是可能还差一点才能开始。如果您的帐户是新的，Quantopian 还提供了一些示例算法。随意查看一下，但你可能会发现他们令人困惑。每个算法中只需要两个函数：`initialize`和`handle_data`。初始化函数在脚本开始时运行一次。您将使用它来设置全局，例如规则，稍后使用的函数以及各种参数。接下来是`handle_data`函数，在市场数据上每分钟运行一次。
+
+让我们编写我自己的简单策略来熟悉 Quantopian。我们将要实现一个简单的移动均值交叉策略，看看它是如何实现的。
+
+如果你不熟悉移动均值，他们所做的就是获取一定数量的“窗口”数据。在每日价格的情况下，一个窗口将是一天。如果你计算 20 移动均值，这意味着 20 日均值。从这里来看，我们假设你有 20 移动均值和 50 移动均值。在一个图上绘制它可能看起来像这样：
+
+![](https://pythonprogramming.net/static/images/finance/example_moving_average_crossover_finance.png)
+
+在这里，蓝线是股价，红线是 20 移动均值，黄线是 50 移动均值。这个想法是，20 个移动均值反应更快，当它移动到 50 移动均值上面时，这意味着价格可能会上涨，我们可能要投资。相反，如果 20 移动均值跌到 50 移动平均线下面，这可能意味着价格正在下降，我们可能要么出售或投资，甚至卖空公司，这是你打赌的地方。
+
+就我们的目的而言，让我们在 2015 年 10 月 7 日至 2016 年 10 月 7 日之间，对苹果公司（AAPL）应用移动均值交叉策略。在此期间，AAPL 股价下跌，随后上涨，净变化很小。我们的交叉策略应该随着价格的下跌而保持远离或者做空（押注），然后在价格上涨的时候扑上来。做空公司需要向其他人借入股票，然后出售，然后几天之后再重新买入股份。你的希望是股价下跌，你重新买回会便宜得多，并将股份还给原来的所有者，赚取差价。首先，我们来构建初始化方法：
+
+```py
+def initialize(context):
+    context.aapl = sid(24)
+```
+
+现在，我们只是要定义我们的苹果股票。如果你真的开始输入`sid(`，Quantopian 有很好的自动补全功能，你可以开始输入公司名称或代码来找到他们的`sid`。使用`sid`的原因是，因为公司代码可以在一段时间内改变。这是一种方法，确保你得到你想要得到的代码，你也可以使用`symbol()`来使用代码，并且让你的代码更容易阅读，但这不推荐，因为股票代码可以改变。
+
+每次用 Zipline 或 Quantopian 创建算法时，都需要有`initialize`和`handle_data`方法。
+
+初始化方法在算法启动时运行一次（或者如果您正在实时运行算法，则每天运行一次）。 `handle_data`每分钟运行一次。
+
+在我们的初始化方法中，我们传递这个上下文参数。上下文是一个 Python 字典，我们将使用它来跟踪，我们将全局变量用于什么。简而言之，上下文变量用于跟踪我们当前的投资环境，例如我们的投资组合和现金。
+
+接下来，我们仍然需要我们的`handle_data`函数。该函数将`context `和`data`作为参数。
+
+上下文参数已解释了，数据变量用于跟踪实际投资组合之外的环境。它跟踪股票价格和其他我们可能投资的公司的信息，但是他们是我们正在跟踪的公司。
+
+`handle_data`函数的开头：
+
+```py
+def handle_data(context,data):
+    # prices for aapl for the last 50 days, in 1 day intervals
+    hist = data.history(context.aapl,'price', 50, '1d')
+```
+
+我们可以使用`.history`方法，获取过去的 50 天内苹果公司的历史价格，间隔为 1 天。 现在我们可以执行：
+
+```py
+    # mean of the entire 200 day history
+    sma_50 = hist.mean()
+    # mean of just the last 50 days
+    sma_20 = hist[-20:].mean()
+```
+
+`sma_50`值就是我们刚刚拉取的历史数据的均值。 `sma_20`是数据的最后 20 天。 请注意，这包含在`handle_data`方法中，该方法在每个周期运行，所以我们只需要跟踪 50 和 20 简单移动均值每天的值。
+
+在下一个教程中，我们将讨论下订单。
+
