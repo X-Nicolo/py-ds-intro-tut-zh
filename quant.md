@@ -2309,3 +2309,104 @@ def handle_data(context,data):
 通过点击左侧导航栏中的“交易详情”，我们可以看到一件事情，那就是我们每天都在做很多交易。 我们可以看到我们的一些交易量也相当大，有时差不多有 1000 万美元。 这里发生了什么事？ 我们也认为我们最好每天只进行一次交易。
 
 相反，`handle_data`函数每分钟运行一次，所以，我们实际上仍然可能每分钟进行一次交易。 如果我们希望做的事情，不是每分钟都在评估市场的话，我们实际上可能打算调度这个函数。 幸运的是，我们可以这样做，这是下一个教程的主题！
+
+## 十五、在 Quantopian 上调度函数
+
+欢迎来到 Python 金融系列教程的第 15 部分，使用 Quantopian 和 Zipline。 在本教程中，我们将介绍`schedule_function`。
+
+在我们的案例中，我们实际上只打算每天交易一次，而不是一天交易多次。 除了简单的交易之外，另一种通常的做法是及时“重新平衡”投资组合。 也许每周，也许每天，也许每个月你想适当平衡，或“多元化”你的投资组合。 这个调度功能可以让你实现它！ 为了调度函数，可以在`initialize`方法中调用`schedule_function`函数。
+
+```py
+def initialize(context):
+    context.aapl = sid(24)
+    schedule_function(ma_crossover_handling, date_rules.every_day(), time_rules.market_open(hours=1))
+
+```
+
+在这里，我们要说的是，我们希望调度这个函数，`every_day`（每天）在`market_open`后一个小时运行。 像往常一样，这里有很多选择。 您可以在市场收盘前`x`小时（仍然使用正值）运行。 例如，如果您想在`market_close`之前 1 小时运行它，那将是`time_rules.market_close(hours=1)`。 您也可以在几分钟内调度，如：`time_rules.market_close(hours=0, minutes=1)`，这意味着在市场收盘前 1 分钟运行这个函数。
+
+现在，我们要做的是从handle_data函数中获取以下代码：
+
+```py
+    hist = data.history(context.aapl,'price', 50, '1d')
+    
+    sma_50 = hist.mean()
+    sma_20 = hist[-20:].mean()
+    
+    open_orders = get_open_orders()
+    
+    if sma_20 > sma_50:
+        if context.aapl not in open_orders:
+            order_target_percent(context.aapl, 1.0)
+    elif sma_20 < sma_50:
+        if context.aapl not in open_orders:
+            order_target_percent(context.aapl, -1.0)
+...cut it and place it under a new function ma_crossover_handling
+
+def ma_crossover_handling(context,data):
+    hist = data.history(context.aapl,'price', 50, '1d')
+    
+    sma_50 = hist.mean()
+    sma_20 = hist[-20:].mean()
+    
+    open_orders = get_open_orders()
+    
+    if sma_20 > sma_50:
+        if context.aapl not in open_orders:
+            order_target_percent(context.aapl, 1.0)
+    elif sma_20 < sma_50:
+        if context.aapl not in open_orders:
+            order_target_percent(context.aapl, -1.0)
+```
+
+请注意，我们在这里传递上下文和数据。现在，运行完整的回测，您应该注意到这比以前要快得多。这是因为我们实际上并不是每分钟重新计算移动均值，而是现在每天计算一次。这为我们节省了大量的计算。
+
+但是请注意，我们的一些交易栏表明，我们正在买卖近 200 万美元的股票，当时我们的资本应该是 100 万美元，而我们做得还不够好，已经翻了一番。
+
+做空会造成这种情况。当我们在 Quantopian 上做空公司时，我们的股票是负的。例如，我们假设我们卖空 100 股苹果。这意味着我们在苹果有 -100 的股份。然后考虑我们想改变我们的股份，持有 100 股苹果。实际上我们需要购买 100 股，来达到 0 股，之后再买 100 股达到`+100`。从`+100`到`-100`也是如此。这就是为什么我们拥有这些看似双倍的交易，没有杠杆。所以通过买入（长期）我们大约是`-7%`，并且根据移动平均交叉做空苹果。如果我们只是买和卖，而不是买和做空，会发生什么？
+
+```py
+def initialize(context):
+    context.aapl = sid(24)
+    schedule_function(ma_crossover_handling, date_rules.every_day(), time_rules.market_open(hours=1))
+    
+def handle_data(context,data):
+    record(leverage=context.account.leverage)
+        
+def ma_crossover_handling(context,data):
+    hist = data.history(context.aapl,'price', 50, '1d')
+    
+    sma_50 = hist.mean()
+    sma_20 = hist[-20:].mean()
+    
+    open_orders = get_open_orders()
+    
+    if sma_20 > sma_50:
+        if context.aapl not in open_orders:
+            order_target_percent(context.aapl, 1.0)
+    elif sma_20 < sma_50:
+        if context.aapl not in open_orders:
+            order_target_percent(context.aapl, 0.0)
+```
+
+![](https://pythonprogramming.net/static/images/finance/buying-and-selling-stock-python-quantopian.png)
+
+我们基本上原地运行。 通常在这个时候，人们开始考虑调整移动均值。 也许是 10 和 50，或者 2 和 50！
+
+![](https://pythonprogramming.net/static/images/finance/2-and-50-sma-test.png)
+
+是的，2 和 50 是魔数！我们击败了市场。问题是，我们没有这些随机数字的真正理由，除了我们特地使我们的回测保持运行，直到我们成功。这是一种数据监听的形式，是一个常见的陷阱，也是你想避免的。例如，选择特定的移动均值来“最好地拟合”历史数据，可能会导致未来的问题，因为这些数字用于历史数据，而不是新的，没有见过的数据。考虑一下苹果公司多年来的变化。它从一个电脑公司，变成知名公司，MP3 播放器公司，再变成电话和电脑公司。由于公司本身也在变化，股票的行为可能会在未来持续变化。
+
+相反，我们需要看看我们的策略，并意识到移动平均交叉策略是不好的。我们需要别的东西，而且我们需要一些有意义的东西作为策略，然后我们使用回测来验证是否可行。我们不希望发现自己不断地调整我们的策略，并好奇地回测，看看我们能否找到一些魔数。这对我们来说不太可能在未来好转。
+
+## 十六、Quantopian 研究入门
+
+接下来的几篇教程将使用 Jamie McCorriston 的“如何获得分配：为 Quantopian 投资管理团队网络研讨会代码编写算法”的稍微修改版本。
+
+### 第一部分：研究环境入门
+
+```py
+from quantopian.interactive.data.sentdex import sentiment
+```
+
+上面，我们导入了 Sentdex 情绪数据集。 情绪数据集提供了大约 500 家公司从 2013 年 6 月开始的情绪数据，1 个月前可以在 Quantopian 上免费使用。 Sentdex 数据提供的信号范围是 -3 到正 6，其中正 6 的程度和 -3 一样，我个人认为正值的粒度更小。
