@@ -723,3 +723,212 @@ for x in range(5):
 ```
 
 其中一个更高级的数据集是`wordnet`。 Wordnet 是一个单词，定义，他们使用的例子，同义词，反义词，等等的集合。 接下来我们将深入使用 wordnet。
+
+## 十、 NLTK 和 Wordnet
+
+WordNet 是英语的词汇数据库，由普林斯顿创建，是 NLTK 语料库的一部分。
+
+您可以一起使用 WordNet 和 NLTK 模块来查找单词含义，同义词，反义词等。 我们来介绍一些例子。
+
+首先，你将需要导入`wordnet`：
+
+```py
+from nltk.corpus import wordnet
+```
+
+之后我们打算使用单词`program`来寻找同义词：
+
+```py
+syns = wordnet.synsets("program")
+```
+
+一个同义词的例子：
+
+```py
+print(syns[0].name())
+
+# plan.n.01
+```
+
+只是单词：
+
+```py
+print(syns[0].lemmas()[0].name())
+
+# plan
+```
+
+第一个同义词的定义：
+
+```py
+print(syns[0].definition())
+
+# a series of steps to be carried out or goals to be accomplished
+```
+
+单词的使用示例：
+
+```py
+print(syns[0].examples())
+
+# ['they drew up a six-step plan', 'they discussed plans for a new bond issue']
+```
+
+接下来，我们如何辨别一个词的同义词和反义词？ 这些词形是同义词，然后你可以使用`.antonyms`找到词形的反义词。 因此，我们可以填充一些列表，如：
+
+```py
+synonyms = []
+antonyms = []
+
+for syn in wordnet.synsets("good"):
+    for l in syn.lemmas():
+        synonyms.append(l.name())
+        if l.antonyms():
+            antonyms.append(l.antonyms()[0].name())
+
+print(set(synonyms))
+print(set(antonyms))
+
+'''
+{'beneficial', 'just', 'upright', 'thoroughly', 'in_force', 'well', 'skilful', 'skillful', 'sound', 'unspoiled', 'expert', 'proficient', 'in_effect', 'honorable', 'adept', 'secure', 'commodity', 'estimable', 'soundly', 'right', 'respectable', 'good', 'serious', 'ripe', 'salutary', 'dear', 'practiced', 'goodness', 'safe', 'effective', 'unspoilt', 'dependable', 'undecomposed', 'honest', 'full', 'near', 'trade_good'} {'evil', 'evilness', 'bad', 'badness', 'ill'}
+'''
+```
+
+你可以看到，我们的同义词比反义词更多，因为我们只是查找了第一个词形的反义词，但是你可以很容易地平衡这个，通过也为`bad`这个词执行完全相同的过程。
+
+接下来，我们还可以很容易地使用 WordNet 来比较两个词的相似性和他们的时态，把 Wu 和 Palmer 方法结合起来用于语义相关性。
+
+我们来比较名词`ship`和`boat`：
+
+```py
+w1 = wordnet.synset('ship.n.01')
+w2 = wordnet.synset('boat.n.01')
+print(w1.wup_similarity(w2))
+
+# 0.9090909090909091
+
+w1 = wordnet.synset('ship.n.01')
+w2 = wordnet.synset('car.n.01')
+print(w1.wup_similarity(w2))
+
+# 0.6956521739130435
+
+w1 = wordnet.synset('ship.n.01')
+w2 = wordnet.synset('cat.n.01')
+print(w1.wup_similarity(w2))
+
+# 0.38095238095238093
+```
+
+接下来，我们将讨论一些问题并开始讨论文本分类的主题。
+
+## 十一、NLTK 文本分类
+
+现在我们熟悉 NLTK 了，我们来尝试处理文本分类。 文本分类的目标可能相当宽泛。 也许我们试图将文本分类为政治或军事。 也许我们试图按照作者的性别来分类。 一个相当受欢迎的文本分类任务是，将文本的正文识别为垃圾邮件或非垃圾邮件，例如电子邮件过滤器。 在我们的例子中，我们将尝试创建一个情感分析算法。
+
+为此，我们首先尝试使用属于 NLTK 语料库的电影评论数据库。 从那里，我们将尝试使用词汇作为“特征”，这是“正面”或“负面”电影评论的一部分。 NLTK 语料库`movie_reviews`数据集拥有评论，他们被标记为正面或负面。 这意味着我们可以训练和测试这些数据。 首先，让我们来预处理我们的数据。
+
+```py
+import nltk
+import random
+from nltk.corpus import movie_reviews
+
+documents = [(list(movie_reviews.words(fileid)), category)
+             for category in movie_reviews.categories()
+             for fileid in movie_reviews.fileids(category)]
+
+random.shuffle(documents)
+
+print(documents[1])
+
+all_words = []
+for w in movie_reviews.words():
+    all_words.append(w.lower())
+
+all_words = nltk.FreqDist(all_words)
+print(all_words.most_common(15))
+print(all_words["stupid"])
+```
+
+运行此脚本可能需要一些时间，因为电影评论数据集有点大。 我们来介绍一下这里发生的事情。
+
+导入我们想要的数据集后，您会看到：
+
+```py
+documents = [(list(movie_reviews.words(fileid)), category)
+             for category in movie_reviews.categories()
+             for fileid in movie_reviews.fileids(category)]
+```
+
+基本上，用简单的英文，上面的代码被翻译成：在每个类别（我们有正向和独享），选取所有的文件 ID（每个评论有自己的 ID），然后对文件 ID存储`word_tokenized`版本（单词列表），后面是一个大列表中的正面或负面标签。
+
+接下来，我们用`random `来打乱我们的文件。这是因为我们将要进行训练和测试。如果我们把他们按序排列，我们可能会训练所有的负面评论，和一些正面评论，然后在所有正面评论上测试。我们不想这样，所以我们打乱了数据。
+
+然后，为了你能看到你正在使用的数据，我们打印出`documents[1]`，这是一个大列表，其中第一个元素是一列单词，第二个元素是`pos`或`neg`标签。
+
+接下来，我们要收集我们找到的所有单词，所以我们可以有一个巨大的典型单词列表。从这里，我们可以执行一个频率分布，然后找出最常见的单词。正如你所看到的，最受欢迎的“词语”其实就是标点符号，`the`，`a`等等，但是很快我们就会得到有效词汇。我们打算存储几千个最流行的单词，所以这不应该是一个问题。
+
+```py
+print(all_words.most_common(15))
+```
+
+以上给出了15个最常用的单词。 你也可以通过下面的步骤找出一个单词的出现次数：
+
+```py
+print(all_words["stupid"])
+```
+
+接下来，我们开始将我们的单词，储存为正面或负面的电影评论的特征。
+
+## 十二、使用 NLTK 将单词转换为特征
+
+在本教程中，我们在以前的视频基础上构建，并编撰正面评论和负面评论中的单词的特征列表，来看到正面或负面评论中特定类型单词的趋势。
+
+最初，我们的代码：
+
+```py
+import nltk
+import random
+from nltk.corpus import movie_reviews
+
+documents = [(list(movie_reviews.words(fileid)), category)
+             for category in movie_reviews.categories()
+             for fileid in movie_reviews.fileids(category)]
+
+random.shuffle(documents)
+
+all_words = []
+
+for w in movie_reviews.words():
+    all_words.append(w.lower())
+
+all_words = nltk.FreqDist(all_words)
+
+word_features = list(all_words.keys())[:3000]
+```
+
+几乎和以前一样，只是现在有一个新的变量，`word_features`，它包含了前 3000 个最常用的单词。 接下来，我们将建立一个简单的函数，在我们的正面和负面的文档中找到这些前 3000 个单词，将他们的存在标记为是或否：
+
+```py
+def find_features(document):
+    words = set(document)
+    features = {}
+    for w in word_features:
+        features[w] = (w in words)
+
+    return features
+```
+
+下面，我们可以打印出特征集：
+
+```py
+print((find_features(movie_reviews.words('neg/cv000_29416.txt'))))
+```
+
+之后我们可以为我们所有的文档做这件事情，通过做下列事情，保存特征存在性布尔值，以及它们各自的正面或负面的类别：
+
+```py
+featuresets = [(find_features(rev), category) for (rev, category) in documents]
+```
+
+真棒，现在我们有了特征和标签，接下来是什么？ 通常，下一步是继续并训练算法，然后对其进行测试。 所以，让我们继续这样做，从下一个教程中的朴素贝叶斯分类器开始！
