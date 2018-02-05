@@ -9,7 +9,7 @@ NLTK 模块是一个巨大的工具包，目的是在整个自然语言处理（
 在我们学习如何使用 NLTK 进行情感分析的过程中，我们将学习以下内容：
 
 +   分词 - 将文本正文分割为句子和单词。
-+   一部分词性标注
++   词性标注
 +   机器学习与朴素贝叶斯分类器
 +   如何一起使用 Scikit Learn（sklearn）与 NLTK
 +   用数据集训练分类器
@@ -40,7 +40,7 @@ pip install nltk
 
 ![](https://pythonprogramming.net/static/images/nltk/nltk-download-gui.png)
 
-为所有软件包选择下载“全部”，然后单击“下载”。 这会给你所有分词器，chunkers，其他算法和所有的语料库。 如果空间是个问题，您可以选择手动选择性下载所有内容。 NLTK 模块将占用大约 7MB，整个`nltk_data`目录将占用大约 1.8GB，其中包括您的 chunkers，解析器和语料库。
+为所有软件包选择下载“全部”，然后单击“下载”。 这会给你所有分词器，分块器，其他算法和所有的语料库。 如果空间是个问题，您可以选择手动选择性下载所有内容。 NLTK 模块将占用大约 7MB，整个`nltk_data`目录将占用大约 1.8GB，其中包括您的分块器，解析器和语料库。
 
 如果您正在使用 VPS 运行无头版本，您可以通过运行 Python ，并执行以下操作来安装所有内容：
 
@@ -59,7 +59,7 @@ all (for download everything)
 现在你已经拥有了所有你需要的东西，让我们敲一些简单的词汇：
 
 +   语料库（Corpus） - 文本的正文，单数。Corpora 是它的复数。示例：`A collection of medical journals`。
-+   词库（Lexicon） - 词汇及其含义。例如：英文字典。但是，考虑到各个领域会有不同的词库。例如：对于金融投资者来说，“Bull（牛市）”这个词的第一个含义是对市场充满信心的人，与“普通英语词汇”相比，这个词的第一个含义是动物。因此，金融投资者，医生，儿童，机械师等都有一个特殊的词库。
++   词库（Lexicon） - 词汇及其含义。例如：英文字典。但是，考虑到各个领域会有不同的词库。例如：对于金融投资者来说，`Bull`（牛市）这个词的第一个含义是对市场充满信心的人，与“普通英语词汇”相比，这个词的第一个含义是动物。因此，金融投资者，医生，儿童，机械师等都有一个特殊的词库。
 +   标记（Token） - 每个“实体”都是根据规则分割的一部分。例如，当一个句子被“拆分”成单词时，每个单词都是一个标记。如果您将段落拆分为句子，则每个句子也可以是一个标记。
 
 这些是在进入自然语言处理（NLP）领域时，最常听到的词语，但是我们将及时涵盖更多的词汇。以此，我们来展示一个例子，说明如何用 NLTK 模块将某些东西拆分为标记。
@@ -88,7 +88,7 @@ print(word_tokenize(EXAMPLE_TEXT))
 ['Hello', 'Mr.', 'Smith', ',', 'how', 'are', 'you', 'doing', 'today', '?', 'The', 'weather', 'is', 'great', ',', 'and', 'Python', 'is', 'awesome', '.', 'The', 'sky', 'is', 'pinkish-blue', '.', 'You', 'should', "n't", 'eat', 'cardboard', '.']
 ```
 
-这里有几件事要注意。 首先，注意标点符号被视为一个单独的标记。 另外，注意单词“shouldn't”分隔为“should”和“n't”。 最后要注意的是，“pinkish-blue”确实被当作“一个词”来对待，本来就是这样。很酷！
+这里有几件事要注意。 首先，注意标点符号被视为一个单独的标记。 另外，注意单词`shouldn't`分隔为`should`和`n't`。 最后要注意的是，`pinkish-blue`确实被当作“一个词”来对待，本来就是这样。很酷！
 
 现在，看着这些分词后的单词，我们必须开始思考我们的下一步可能是什么。 我们开始思考如何通过观察这些词汇来获得含义。 我们可以想清楚，如何把价值放在许多单词上，但我们也看到一些基本上毫无价值的单词。 这是一种“停止词”的形式，我们也可以处理。 这就是我们将在下一个教程中讨论的内容。
 
@@ -98,7 +98,7 @@ print(word_tokenize(EXAMPLE_TEXT))
 
 这显然是一个巨大的挑战，但是有一些任何人都能遵循的步骤。然而，主要思想是电脑根本不会直接理解单词。令人震惊的是，人类也不会。在人类中，记忆被分解成大脑中的电信号，以发射模式的神经组的形式。对于大脑还有很多未知的事情，但是我们越是把人脑分解成基本的元素，我们就会发现基本的元素。那么，事实证明，计算机以非常相似的方式存储信息！如果我们要模仿人类如何阅读和理解文本，我们需要一种尽可能接近的方法。一般来说，计算机使用数字来表示一切事物，但是我们经常直接在编程中看到使用二进制信号（`True`或`False`，可以直接转换为 1 或 0，直接来源于电信号存在`(True, 1)`或不存在`(False, 0)`）。为此，我们需要一种方法,将单词转换为数值或信号模式。将数据转换成计算机可以理解的东西，这个过程称为“预处理”。预处理的主要形式之一就是过滤掉无用的数据。在自然语言处理中，无用词（数据）被称为停止词。
 
-我们可以立即认识到，有些词语比其他词语更有意义。我们也可以看到，有些单词是无用的，是填充词。例如，我们在英语中使用它们来填充句子，这样就没有那么奇怪的声音了。一个最常见的，非官方的，无用词的例子是单词“umm”。人们经常用“umm”来填充，比别的词多一些。这个词毫无意义，除非我们正在寻找一个可能缺乏自信，困惑，或者说没有太多话的人。我们都这样做，有...呃...很多时候，你可以在视频中听到我说“umm”或“uhh”。对于大多数分析而言，这些词是无用的。
+我们可以立即认识到，有些词语比其他词语更有意义。我们也可以看到，有些单词是无用的，是填充词。例如，我们在英语中使用它们来填充句子，这样就没有那么奇怪的声音了。一个最常见的，非官方的，无用词的例子是单词`umm`。人们经常用`umm`来填充，比别的词多一些。这个词毫无意义，除非我们正在寻找一个可能缺乏自信，困惑，或者说没有太多话的人。我们都这样做，有...呃...很多时候，你可以在视频中听到我说`umm`或`uhh`。对于大多数分析而言，这些词是无用的。
 
 我们不希望这些词占用我们数据库的空间，或占用宝贵的处理时间。因此，我们称这些词为“无用词”，因为它们是无用的，我们希望对它们不做处理。 “停止词”这个词的另一个版本可以更书面一些：我们停在上面的单词。
 
@@ -149,3 +149,194 @@ print(filtered_sentence)
 ```
 
 我们的数据库感谢了我们。数据预处理的另一种形式是“词干提取（Stemming）”，这就是我们接下来要讨论的内容。
+
+## 三、NLTK 词干提取
+
+词干的概念是一种规范化方法。 除涉及时态之外，许多词语的变体都具有相同的含义。
+
+我们提取词干的原因是为了缩短查找的时间，使句子正常化。
+
+考虑：
+
+```
+I was taking a ride in the car.
+I was riding in the car.
+```
+
+这两句话意味着同样的事情。 `in the car`（在车上）是一样的。 `I`（我）是一样的。 在这两种情况下，`ing`都明确表示过去式，所以在试图弄清这个过去式活动的含义的情况下，是否真的有必要区分`riding`和`taking a ride`？
+
+不，并没有。
+
+这只是一个小例子，但想象英语中的每个单词，可以放在单词上的每个可能的时态和词缀。 每个版本有单独的字典条目，将非常冗余和低效，特别是因为一旦我们转换为数字，“价值”将是相同的。
+
+最流行的瓷感提取算法之一是 Porter，1979 年就存在了。
+
+首先，我们要抓取并定义我们的词干：
+
+```py
+from nltk.stem import PorterStemmer
+from nltk.tokenize import sent_tokenize, word_tokenize
+
+ps = PorterStemmer()
+```
+
+现在让我们选择一些带有相似词干的单词，例如：
+
+```py
+example_words = ["python","pythoner","pythoning","pythoned","pythonly"]
+```
+
+下面，我们可以这样做来轻易提取词干：
+
+```py
+for w in example_words:
+    print(ps.stem(w))
+```
+
+我们的输出：
+
+```py
+python
+python
+python
+python
+pythonli
+```
+
+现在让我们尝试对一个典型的句子，而不是一些单词提取词干：
+
+```py
+new_text = "It is important to by very pythonly while you are pythoning with python. All pythoners have pythoned poorly at least once."
+words = word_tokenize(new_text)
+
+for w in words:
+    print(ps.stem(w))
+```
+
+现在我们的结果为：
+
+```
+It
+is
+import
+to
+by
+veri
+pythonli
+while
+you
+are
+python
+with
+python
+.
+All
+python
+have
+python
+poorli
+at
+least
+onc
+.
+```
+
+接下来，我们将讨论 NLTK 模块中一些更高级的内容，词性标注，其中我们可以使用 NLTK 模块来识别句子中每个单词的词性。
+
+## 四、NLTK 词性标注
+
+NLTK模块的一个更强大的方面是，它可以为你做词性标注。 意思是把一个句子中的单词标注为名词，形容词，动词等。 更令人印象深刻的是，它也可以按照时态来标记，以及其他。 这是一列标签，它们的含义和一些例子：
+
+```py
+POS tag list:
+
+CC	coordinating conjunction
+CD	cardinal digit
+DT	determiner
+EX	existential there (like: "there is" ... think of it like "there exists")
+FW	foreign word
+IN	preposition/subordinating conjunction
+JJ	adjective	'big'
+JJR	adjective, comparative	'bigger'
+JJS	adjective, superlative	'biggest'
+LS	list marker	1)
+MD	modal	could, will
+NN	noun, singular 'desk'
+NNS	noun plural	'desks'
+NNP	proper noun, singular	'Harrison'
+NNPS	proper noun, plural	'Americans'
+PDT	predeterminer	'all the kids'
+POS	possessive ending	parent's
+PRP	personal pronoun	I, he, she
+PRP$	possessive pronoun	my, his, hers
+RB	adverb	very, silently,
+RBR	adverb, comparative	better
+RBS	adverb, superlative	best
+RP	particle	give up
+TO	to	go 'to' the store.
+UH	interjection	errrrrrrrm
+VB	verb, base form	take
+VBD	verb, past tense	took
+VBG	verb, gerund/present participle	taking
+VBN	verb, past participle	taken
+VBP	verb, sing. present, non-3d	take
+VBZ	verb, 3rd person sing. present	takes
+WDT	wh-determiner	which
+WP	wh-pronoun	who, what
+WP$	possessive wh-pronoun	whose
+WRB	wh-abverb	where, when
+```
+
+我们如何使用这个？ 当我们处理它的时候，我们要讲解一个新的句子标记器，叫做`PunktSentenceTokenizer`。 这个标记器能够无监督地进行机器学习，所以你可以在你使用的任何文本上进行实际的训练。 首先，让我们获取一些我们打算使用的导入：
+
+```py
+import nltk
+from nltk.corpus import state_union
+from nltk.tokenize import PunktSentenceTokenizer
+```
+
+现在让我们创建训练和测试数据：
+
+```py
+train_text = state_union.raw("2005-GWBush.txt")
+sample_text = state_union.raw("2006-GWBush.txt")
+```
+
+一个是 2005 年以来的国情咨文演说，另一个是 2006 年以来的乔治·W·布什总统的演讲。
+
+接下来，我们可以训练 Punkt 标记器，如下所示：
+
+```py
+custom_sent_tokenizer = PunktSentenceTokenizer(train_text)
+```
+
+之后我们可以实际分词，使用：
+
+```py
+tokenized = custom_sent_tokenizer.tokenize(sample_text)
+```
+
+现在我们可以通过创建一个函数，来完成这个词性标注脚本，该函数将遍历并标记每个句子的词性，如下所示：
+
+```py
+def process_content():
+    try:
+        for i in tokenized[:5]:
+            words = nltk.word_tokenize(i)
+            tagged = nltk.pos_tag(words)
+            print(tagged)
+
+    except Exception as e:
+        print(str(e))
+
+
+process_content()
+```
+
+输出应该是元组列表，元组中的第一个元素是单词，第二个元素是词性标签。 它应该看起来像：
+
+```py
+[('PRESIDENT', 'NNP'), ('GEORGE', 'NNP'), ('W.', 'NNP'), ('BUSH', 'NNP'), ("'S", 'POS'), ('ADDRESS', 'NNP'), ('BEFORE', 'NNP'), ('A', 'NNP'), ('JOINT', 'NNP'), ('SESSION', 'NNP'), ('OF', 'NNP'), ('THE', 'NNP'), ('CONGRESS', 'NNP'), ('ON', 'NNP'), ('THE', 'NNP'), ('STATE', 'NNP'), ('OF', 'NNP'), ('THE', 'NNP'), ('UNION', 'NNP'), ('January', 'NNP'), ('31', 'CD'), (',', ','), ('2006', 'CD'), ('THE', 'DT'), ('PRESIDENT', 'NNP'), (':', ':'), ('Thank', 'NNP'), ('you', 'PRP'), ('all', 'DT'), ('.', '.')] [('Mr.', 'NNP'), ('Speaker', 'NNP'), (',', ','), ('Vice', 'NNP'), ('President', 'NNP'), ('Cheney', 'NNP'), (',', ','), ('members', 'NNS'), ('of', 'IN'), ('Congress', 'NNP'), (',', ','), ('members', 'NNS'), ('of', 'IN'), ('the', 'DT'), ('Supreme', 'NNP'), ('Court', 'NNP'), ('and', 'CC'), ('diplomatic', 'JJ'), ('corps', 'NNS'), (',', ','), ('distinguished', 'VBD'), ('guests', 'NNS'), (',', ','), ('and', 'CC'), ('fellow', 'JJ'), ('citizens', 'NNS'), (':', ':'), ('Today', 'NN'), ('our', 'PRP$'), ('nation', 'NN'), ('lost', 'VBD'), ('a', 'DT'), ('beloved', 'VBN'), (',', ','), ('graceful', 'JJ'), (',', ','), ('courageous', 'JJ'), ('woman', 'NN'), ('who', 'WP'), ('called', 'VBN'), ('America', 'NNP'), ('to', 'TO'), ('its', 'PRP$'), ('founding', 'NN'), ('ideals', 'NNS'), ('and', 'CC'), ('carried', 'VBD'), ('on', 'IN'), ('a', 'DT'), ('noble', 'JJ'), ('dream', 'NN'), ('.', '.')] [('Tonight', 'NNP'), ('we', 'PRP'), ('are', 'VBP'), ('comforted', 'VBN'), ('by', 'IN'), ('the', 'DT'), ('hope', 'NN'), ('of', 'IN'), ('a', 'DT'), ('glad', 'NN'), ('reunion', 'NN'), ('with', 'IN'), ('the', 'DT'), ('husband', 'NN'), ('who', 'WP'), ('was', 'VBD'), ('taken', 'VBN'), ('so', 'RB'), ('long', 'RB'), ('ago', 'RB'), (',', ','), ('and', 'CC'), ('we', 'PRP'), ('are', 'VBP'), ('grateful', 'JJ'), ('for', 'IN'), ('the', 'DT'), ('good', 'NN'), ('life', 'NN'), ('of', 'IN'), ('Coretta', 'NNP'), ('Scott', 'NNP'), ('King', 'NNP'), ('.', '.')] [('(', 'NN'), ('Applause', 'NNP'), ('.', '.'), (')', ':')] [('President', 'NNP'), ('George', 'NNP'), ('W.', 'NNP'), ('Bush', 'NNP'), ('reacts', 'VBZ'), ('to', 'TO'), ('applause', 'VB'), ('during', 'IN'), ('his', 'PRP$'), ('State', 'NNP'), ('of', 'IN'), ('the', 'DT'), ('Union', 'NNP'), ('Address', 'NNP'), ('at', 'IN'), ('the', 'DT'), ('Capitol', 'NNP'), (',', ','), ('Tuesday', 'NNP'), (',', ','), ('Jan', 'NNP'), ('.', '.')]
+```
+
+到了这里，我们可以开始获得含义，但是还有一些工作要做。 我们将要讨论的下一个话题是分块（chunking），其中我们跟句单词的词性，将单词分到，有意义的分组中。
