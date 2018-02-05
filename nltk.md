@@ -568,4 +568,158 @@ process_content()
 
 这意味着我们要从缝隙中删除一个或多个动词，介词，限定词或`to`这个词。
 
-现在我们已经学会了，如何执行一些自定义的分块和添加缝隙，我们来讨论一下 NLTK 自带的分块形式，这叫做实体识别。
+现在我们已经学会了，如何执行一些自定义的分块和添加缝隙，我们来讨论一下 NLTK 自带的分块形式，这就是命名实体识别。
+
+## 七、NLTK 命名实体识别
+
+自然语言处理中最主要的分块形式之一被称为“命名实体识别”。 这个想法是让机器立即能够拉出“实体”，例如人物，地点，事物，位置，货币等等。
+
+这可能是一个挑战，但 NLTK 是为我们内置了它。 NLTK 的命名实体识别有两个主要选项：识别所有命名实体，或将命名实体识别为它们各自的类型，如人物，地点，位置等。
+
+这是一个例子：
+
+```py
+import nltk
+from nltk.corpus import state_union
+from nltk.tokenize import PunktSentenceTokenizer
+
+train_text = state_union.raw("2005-GWBush.txt")
+sample_text = state_union.raw("2006-GWBush.txt")
+
+custom_sent_tokenizer = PunktSentenceTokenizer(train_text)
+
+tokenized = custom_sent_tokenizer.tokenize(sample_text)
+
+def process_content():
+    try:
+        for i in tokenized[5:]:
+            words = nltk.word_tokenize(i)
+            tagged = nltk.pos_tag(words)
+            namedEnt = nltk.ne_chunk(tagged, binary=True)
+            namedEnt.draw()
+    except Exception as e:
+        print(str(e))
+
+
+process_content()
+```
+
+在这里，选择`binary = True`，这意味着一个东西要么是命名实体，要么不是。 将不会有进一步的细节。 结果是：
+
+![](https://pythonprogramming.net/static/images/nltk/named-entity-recognition-binary-true.png)
+
+如果你设置了`binary = False`，结果为：
+
+![](https://pythonprogramming.net/static/images/nltk/named-entity-recognition-binary-false.png)
+
+你可以马上看到一些事情。 当`binary`是假的时候，它也选取了同样的东西，但是把`White House`这样的术语分解成`White`和`House`，就好像它们是不同的，而我们可以在`binary = True`的选项中看到，命名实体的识别 说`White House`是相同命名实体的一部分，这是正确的。
+
+根据你的目标，你可以使用`binary `选项。 如果您的`binary `为`false`，这里是你可以得到的，命名实体的类型：
+
+```
+NE Type and Examples
+ORGANIZATION - Georgia-Pacific Corp., WHO
+PERSON - Eddy Bonte, President Obama
+LOCATION - Murray River, Mount Everest
+DATE - June, 2008-06-29
+TIME - two fifty a m, 1:30 p.m.
+MONEY - 175 million Canadian Dollars, GBP 10.40
+PERCENT - twenty pct, 18.75 %
+FACILITY - Washington Monument, Stonehenge
+GPE - South East Asia, Midlothian
+```
+
+无论哪种方式，你可能会发现，你需要做更多的工作才能做到恰到好处，但是这个功能非常强大。
+
+在接下来的教程中，我们将讨论类似于词干提取的东西，叫做“词形还原”（lemmatizing）。
+
+## 八、NLTK 词形还原
+
+与词干提权非常类似的操作称为词形还原。 这两者之间的主要区别是，你之前看到了，词干提权经常可能创造出不存在的词汇，而词形是实际的词汇。
+
+所以，你的词干，也就是你最终得到的词，不是你可以在字典中查找的东西，但你可以查找一个词形。
+
+有时你最后会得到非常相似的词语，但有时候，你会得到完全不同的词语。 我们来看一些例子。
+
+```py
+from nltk.stem import WordNetLemmatizer
+
+lemmatizer = WordNetLemmatizer()
+
+print(lemmatizer.lemmatize("cats"))
+print(lemmatizer.lemmatize("cacti"))
+print(lemmatizer.lemmatize("geese"))
+print(lemmatizer.lemmatize("rocks"))
+print(lemmatizer.lemmatize("python"))
+print(lemmatizer.lemmatize("better", pos="a"))
+print(lemmatizer.lemmatize("best", pos="a"))
+print(lemmatizer.lemmatize("run"))
+print(lemmatizer.lemmatize("run",'v'))
+```
+
+在这里，我们有一些我们使用的词的词形的例子。 唯一要注意的是，`lemmatize `接受词性参数`pos`。 如果没有提供，默认是“名词”。 这意味着，它将尝试找到最接近的名词，这可能会给你造成麻烦。 如果你使用词形还原，请记住！
+
+在接下来的教程中，我们将深入模块附带的 NTLK 语料库，查看所有优秀文档，他们在那里等待着我们。
+
+## 九、 NLTK 语料库
+
+在本教程的这一部分，我想花一点时间来深入我们全部下载的语料库！ NLTK 语料库是各种自然语言数据集，绝对值得一看。
+
+NLTK 语料库中的几乎所有文件都遵循相同的规则，通过使用 NLTK 模块来访问它们，但是它们没什么神奇的。 这些文件大部分都是纯文本文件，其中一些是 XML 文件，另一些是其他格式文件，但都可以通过手动或模块和 Python 访问。 让我们来谈谈手动查看它们。
+
+根据您的安装，您的`nltk_data`目录可能隐藏在多个位置。 为了找出它的位置，请转到您的 Python 目录，也就是 NLTK 模块所在的位置。 如果您不知道在哪里，请使用以下代码：
+
+```py
+import nltk
+print(nltk.__file__)
+```
+
+运行它，输出将是 NLTK 模块`__init__.py`的位置。 进入 NLTK 目录，然后查找`data.py`文件。
+
+代码的重要部分是：
+
+```py
+if sys.platform.startswith('win'):
+    # Common locations on Windows:
+    path += [
+        str(r'C:\nltk_data'), str(r'D:\nltk_data'), str(r'E:\nltk_data'),
+        os.path.join(sys.prefix, str('nltk_data')),
+        os.path.join(sys.prefix, str('lib'), str('nltk_data')),
+        os.path.join(os.environ.get(str('APPDATA'), str('C:\\')), str('nltk_data'))
+    ]
+else:
+    # Common locations on UNIX & OS X:
+    path += [
+        str('/usr/share/nltk_data'),
+        str('/usr/local/share/nltk_data'),
+        str('/usr/lib/nltk_data'),
+        str('/usr/local/lib/nltk_data')
+    ]
+```
+
+在那里，你可以看到`nltk_data`的各种可能的目录。 如果你在 Windows 上，它很可能是在你的`appdata`中，在本地目录中。 为此，你需要打开你的文件浏览器，到顶部，然后输入`%appdata%`。
+
+接下来点击`roaming`，然后找到`nltk_data`目录。 在那里，你将找到你的语料库文件。 完整的路径是这样的：
+
+```
+C:\Users\yourname\AppData\Roaming\nltk_data\corpora
+```
+
+在这里，你有所有可用的语料库，包括书籍，聊天记录，电影评论等等。
+
+现在，我们将讨论通过 NLTK 访问这些文档。 正如你所看到的，这些主要是文本文档，所以你可以使用普通的 Python 代码来打开和阅读文档。 也就是说，NLTK 模块有一些很好的处理语料库的方法，所以你可能会发现使用他们的方法是实用的。 下面是我们打开“古腾堡圣经”，并阅读前几行的例子：
+
+```py
+from nltk.tokenize import sent_tokenize, PunktSentenceTokenizer
+from nltk.corpus import gutenberg
+
+# sample text
+sample = gutenberg.raw("bible-kjv.txt")
+
+tok = sent_tokenize(sample)
+
+for x in range(5):
+    print(tok[x])
+```
+
+其中一个更高级的数据集是`wordnet`。 Wordnet 是一个单词，定义，他们使用的例子，同义词，反义词，等等的集合。 接下来我们将深入使用 wordnet。
