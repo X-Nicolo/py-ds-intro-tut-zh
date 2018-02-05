@@ -340,3 +340,232 @@ process_content()
 ```
 
 到了这里，我们可以开始获得含义，但是还有一些工作要做。 我们将要讨论的下一个话题是分块（chunking），其中我们跟句单词的词性，将单词分到，有意义的分组中。
+
+## 五、NLTK 分块
+
+现在我们知道了词性，我们可以注意所谓的分块，把词汇分成有意义的块。 分块的主要目标之一是将所谓的“名词短语”分组。 这些是包含一个名词的一个或多个单词的短语，可能是一些描述性词语，也可能是一个动词，也可能是一个副词。 这个想法是把名词和与它们有关的词组合在一起。
+
+为了分块，我们将词性标签与正则表达式结合起来。 主要从正则表达式中，我们要利用这些东西：
+
+```
++ = match 1 or more
+? = match 0 or 1 repetitions.
+* = match 0 or MORE repetitions	  
+. = Any character except a new line
+```
+
+如果您需要正则表达式的帮助，请参阅上面链接的教程。 最后需要注意的是，词性标签中用`<`和`>`表示，我们也可以在标签本身中放置正则表达式，来表达“全部名词”（`<N.*>`）。
+
+```py
+import nltk
+from nltk.corpus import state_union
+from nltk.tokenize import PunktSentenceTokenizer
+
+train_text = state_union.raw("2005-GWBush.txt")
+sample_text = state_union.raw("2006-GWBush.txt")
+
+custom_sent_tokenizer = PunktSentenceTokenizer(train_text)
+
+tokenized = custom_sent_tokenizer.tokenize(sample_text)
+
+def process_content():
+    try:
+        for i in tokenized:
+            words = nltk.word_tokenize(i)
+            tagged = nltk.pos_tag(words)
+            chunkGram = r"""Chunk: {<RB.?>*<VB.?>*<NNP>+<NN>?}"""
+            chunkParser = nltk.RegexpParser(chunkGram)
+            chunked = chunkParser.parse(tagged)
+            chunked.draw()     
+
+    except Exception as e:
+        print(str(e))
+
+process_content()
+```
+
+结果是这样的：
+
+![](https://pythonprogramming.net/static/images/nltk/nltk_chunking.png)
+
+这里的主要一行是：
+
+```py
+chunkGram = r"""Chunk: {<RB.?>*<VB.?>*<NNP>+<NN>?}"""
+```
+
+把这一行拆分开：
+
+`<RB.?>*`：零个或多个任何时态的副词，后面是：
+
+`<VB.?>*`：零个或多个任何时态的动词，后面是：
+
+`<NNP>+`：一个或多个合理的名词，后面是：
+
+`<NN>?`：零个或一个名词单数。
+
+尝试玩转组合来对各种实例进行分组，直到您觉得熟悉了。
+
+视频中没有涉及，但是也有个合理的任务是实际访问具体的块。 这是很少被提及的，但根据你在做的事情，这可能是一个重要的步骤。 假设你把块打印出来，你会看到如下输出：
+
+```
+(S
+  (Chunk PRESIDENT/NNP GEORGE/NNP W./NNP BUSH/NNP)
+  'S/POS
+  (Chunk
+    ADDRESS/NNP
+    BEFORE/NNP
+    A/NNP
+    JOINT/NNP
+    SESSION/NNP
+    OF/NNP
+    THE/NNP
+    CONGRESS/NNP
+    ON/NNP
+    THE/NNP
+    STATE/NNP
+    OF/NNP
+    THE/NNP
+    UNION/NNP
+    January/NNP)
+  31/CD
+  ,/,
+  2006/CD
+  THE/DT
+  (Chunk PRESIDENT/NNP)
+  :/:
+  (Chunk Thank/NNP)
+  you/PRP
+  all/DT
+  ./.)
+```
+
+很酷，这可以帮助我们可视化，但如果我们想通过我们的程序访问这些数据呢？ 那么，这里发生的是我们的“分块”变量是一个 NLTK 树。 每个“块”和“非块”是树的“子树”。 我们可以通过像`chunked.subtrees`的东西来引用它们。 然后我们可以像这样遍历这些子树：
+
+```py
+            for subtree in chunked.subtrees():
+                print(subtree)
+```
+
+接下来，我们可能只关心获得这些块，忽略其余部分。 我们可以在`chunked.subtrees()`调用中使用`filter`参数。
+
+```py
+            for subtree in chunked.subtrees(filter=lambda t: t.label() == 'Chunk'):
+                print(subtree)
+```
+
+现在，我们执行过滤，来显示标签为“块”的子树。 请记住，这不是 NLTK 块属性中的“块”...这是字面上的“块”，因为这是我们给它的标签：`chunkGram = r"""Chunk: {<RB.?>*<VB.?>*<NNP>+<NN>?}"""`。
+
+如果我们写了一些东西，类似`chunkGram = r"""Pythons: {<RB.?>*<VB.?>*<NNP>+<NN>?}"""`，那么我们可以通过`"Pythons."`标签来过滤。 结果应该是这样的：
+
+```
+-
+(Chunk PRESIDENT/NNP GEORGE/NNP W./NNP BUSH/NNP)
+(Chunk
+  ADDRESS/NNP
+  BEFORE/NNP
+  A/NNP
+  JOINT/NNP
+  SESSION/NNP
+  OF/NNP
+  THE/NNP
+  CONGRESS/NNP
+  ON/NNP
+  THE/NNP
+  STATE/NNP
+  OF/NNP
+  THE/NNP
+  UNION/NNP
+  January/NNP)
+(Chunk PRESIDENT/NNP)
+(Chunk Thank/NNP)
+```
+
+完整的代码是：
+
+```py
+import nltk
+from nltk.corpus import state_union
+from nltk.tokenize import PunktSentenceTokenizer
+
+train_text = state_union.raw("2005-GWBush.txt")
+sample_text = state_union.raw("2006-GWBush.txt")
+
+custom_sent_tokenizer = PunktSentenceTokenizer(train_text)
+
+tokenized = custom_sent_tokenizer.tokenize(sample_text)
+
+def process_content():
+    try:
+        for i in tokenized:
+            words = nltk.word_tokenize(i)
+            tagged = nltk.pos_tag(words)
+            chunkGram = r"""Chunk: {<RB.?>*<VB.?>*<NNP>+<NN>?}"""
+            chunkParser = nltk.RegexpParser(chunkGram)
+            chunked = chunkParser.parse(tagged)
+            
+            print(chunked)
+            for subtree in chunked.subtrees(filter=lambda t: t.label() == 'Chunk'):
+                print(subtree)
+
+            chunked.draw()
+
+    except Exception as e:
+        print(str(e))
+
+process_content()
+```
+
+## 六、 NLTK 添加缝隙（Chinking）
+
+你可能会发现，经过大量的分块之后，你的块中还有一些你不想要的单词，但是你不知道如何通过分块来摆脱它们。 你可能会发现添加缝隙是你的解决方案。
+
+添加缝隙与分块很像，它基本上是一种从块中删除块的方法。 你从块中删除的块就是你的缝隙。
+
+代码非常相似，你只需要用`}{`来代码缝隙，在块后面，而不是块的`{}`。
+
+```py
+import nltk
+from nltk.corpus import state_union
+from nltk.tokenize import PunktSentenceTokenizer
+
+train_text = state_union.raw("2005-GWBush.txt")
+sample_text = state_union.raw("2006-GWBush.txt")
+
+custom_sent_tokenizer = PunktSentenceTokenizer(train_text)
+
+tokenized = custom_sent_tokenizer.tokenize(sample_text)
+
+def process_content():
+    try:
+        for i in tokenized[5:]:
+            words = nltk.word_tokenize(i)
+            tagged = nltk.pos_tag(words)
+
+            chunkGram = r"""Chunk: {<.*>+}
+                                    }<VB.?|IN|DT|TO>+{"""
+
+            chunkParser = nltk.RegexpParser(chunkGram)
+            chunked = chunkParser.parse(tagged)
+
+            chunked.draw()
+
+    except Exception as e:
+        print(str(e))
+
+process_content()
+```
+
+使用它，你得到了一些东西：
+
+![](https://pythonprogramming.net/static/images/nltk/chinking.png)
+
+现在，主要的区别是：
+
+```
+}<VB.?|IN|DT|TO>+{
+```
+
+这意味着我们要从缝隙中删除一个或多个动词，介词，限定词或`to`这个词。
+
+现在我们已经学会了，如何执行一些自定义的分块和添加缝隙，我们来讨论一下 NLTK 自带的分块形式，这叫做实体识别。
