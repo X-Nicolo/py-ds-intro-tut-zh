@@ -1,5 +1,11 @@
 # 自然语言处理教程
 
+> 原文：[Natural Language Process](https://pythonprogramming.net/tokenizing-words-sentences-nltk-tutorial/)
+
+> 译者：[飞龙](https://github.com/)
+
+> 协议：[CC BY-NC-SA 4.0](http://creativecommons.org/licenses/by-nc-sa/4.0/)
+
 # 一、使用 NLTK 分析单词和句子
 
 欢迎阅读自然语言处理系列教程，使用 Python 的自然语言工具包 NLTK 模块。
@@ -2067,3 +2073,501 @@ print(classified_text)
 
 > [Chuck Dishmon](http://chuckdishmon.github.io/) 的客座文章。
 
+我们知道了如何使用两个不同的 NER 分类器！ 但是我们应该选择哪一个，NLTK 还是斯坦福大学的呢？ 让我们做一些测试来找出答案。
+
+我们需要的第一件事是一些已标注的参考数据，用来测试我们的 NER 分类器。 获取这些数据的一种方法是查找大量文章，并将每个标记标记为一种命名实体（例如，人员，组织，位置）或其他非命名实体。 然后我们可以用我们所知的正确标签，来测试我们单独的 NER 分类器。
+
+不幸的是，这是非常耗时的！ 好消息是，有一个手动标注的数据集可以免费获得，带有超过 16,000 英语句子。 还有德语，西班牙语，法语，意大利语，荷兰语，波兰语，葡萄牙语和俄语的数据集！
+
+这是一个来自数据集的已标注的句子：
+
+```
+Founding O
+member O
+Kojima I-PER
+Minoru I-PER
+played O
+guitar O
+on O
+Good I-MISC
+Day I-MISC
+, O
+and O
+Wardanceis I-MISC
+cover O
+of O
+a O
+song O
+by O
+UK I-LOC
+post O
+punk O
+industrial O
+band O
+Killing I-ORG
+Joke I-ORG
+. O
+```
+
+让我们阅读，分割和操作数据，使其成为用于测试的更好格式。
+
+```py
+import nltk
+from nltk.tag import StanfordNERTagger
+from nltk.metrics.scores import accuracy
+
+raw_annotations = open("/usr/share/wikigold.conll.txt").read()
+split_annotations = raw_annotations.split()
+
+# Amend class annotations to reflect Stanford's NERTagger
+for n,i in enumerate(split_annotations):
+	if i == "I-PER":
+		split_annotations[n] = "PERSON"
+	if i == "I-ORG":
+		split_annotations[n] = "ORGANIZATION"
+	if i == "I-LOC":
+		split_annotations[n] = "LOCATION"
+
+# Group NE data into tuples
+def group(lst, n):
+  for i in range(0, len(lst), n):
+	val = lst[i:i+n]
+	if len(val) == n:
+	  yield tuple(val)
+
+reference_annotations = list(group(split_annotations, 2))
+```
+
+好的，看起来不错！ 但是，我们还需要将这些数据的“整洁”形式粘贴到我们的 NER 分类器中。 让我们来做吧。
+
+```py
+pure_tokens = split_annotations[::2]
+```
+
+这读入数据，按照空白字符分割，然后以二的增量（从第零个元素开始），取`split_annotations`中的所有东西的子集。 这产生了一个数据集，类似下面的（小得多）例子：
+
+```py
+['Founding', 'member', 'Kojima', 'Minoru', 'played', 'guitar', 'on', 'Good', 'Day', ',', 'and', 'Wardanceis', 'cover', 'of', 'a', 'song', 'by', 'UK', 'post', 'punk', 'industrial', 'band', 'Killing', 'Joke', '.']
+
+```
+
+让我们继续并测试 NLTK 分类器：
+
+```py
+tagged_words = nltk.pos_tag(pure_tokens)
+nltk_unformatted_prediction = nltk.ne_chunk(tagged_words)
+```
+
+由于 NLTK NER 分类器产生树（包括 POS 标签），我们需要做一些额外的数据操作来获得用于测试的适当形式。
+
+```py
+#Convert prediction to multiline string and then to list (includes pos tags)
+multiline_string = nltk.chunk.tree2conllstr(nltk_unformatted_prediction)
+listed_pos_and_ne = multiline_string.split()
+
+# Delete pos tags and rename
+del listed_pos_and_ne[1::3]
+listed_ne = listed_pos_and_ne
+
+# Amend class annotations for consistency with reference_annotations
+for n,i in enumerate(listed_ne):
+	if i == "B-PERSON":
+		listed_ne[n] = "PERSON"
+	if i == "I-PERSON":
+		listed_ne[n] = "PERSON"    
+	if i == "B-ORGANIZATION":
+		listed_ne[n] = "ORGANIZATION"
+	if i == "I-ORGANIZATION":
+		listed_ne[n] = "ORGANIZATION"
+	if i == "B-LOCATION":
+		listed_ne[n] = "LOCATION"
+	if i == "I-LOCATION":
+		listed_ne[n] = "LOCATION"
+	if i == "B-GPE":
+		listed_ne[n] = "LOCATION"
+	if i == "I-GPE":
+		listed_ne[n] = "LOCATION"
+
+# Group prediction into tuples
+nltk_formatted_prediction = list(group(listed_ne, 2))
+```
+
+现在我们可以测试 NLTK 的准确率。
+
+```py
+nltk_accuracy = accuracy(reference_annotations, nltk_formatted_prediction)
+print(nltk_accuracy)
+```
+
+哇，准确率为`.8971`！
+
+现在让我们测试斯坦福分类器。 由于此分类器以元组形式生成输出，因此测试不需要更多的数据操作。
+
+```py
+st = StanfordNERTagger('/usr/share/stanford-ner/classifiers/english.all.3class.distsim.crf.ser.gz',
+					   '/usr/share/stanford-ner/stanford-ner.jar',
+					   encoding='utf-8')                  
+stanford_prediction = st.tag(pure_tokens)
+stanford_accuracy = accuracy(reference_annotations, stanford_prediction)
+print(stanford_accuracy)
+```
+
+`.9223`的准确率！更好！
+
+如果你想绘制这个，这里有一些额外的代码。 如果你想深入了解这如何工作，查看 matplotlib 系列：
+
+```py
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib import style
+
+style.use('fivethirtyeight')
+
+N = 1
+ind = np.arange(N)  # the x locations for the groups
+width = 0.35       # the width of the bars
+
+fig, ax = plt.subplots()
+
+stanford_percentage = stanford_accuracy * 100
+rects1 = ax.bar(ind, stanford_percentage, width, color='r')
+
+nltk_percentage = nltk_accuracy * 100
+rects2 = ax.bar(ind+width, nltk_percentage, width, color='y')
+
+# add some text for labels, title and axes ticks
+ax.set_xlabel('Classifier')
+ax.set_ylabel('Accuracy (by percentage)')
+ax.set_title('Accuracy by NER Classifier')
+ax.set_xticks(ind+width)
+ax.set_xticklabels( ('') )
+
+ax.legend( (rects1[0], rects2[0]), ('Stanford', 'NLTK'), bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0. )
+
+def autolabel(rects):
+	# attach some text labels
+	for rect in rects:
+		height = rect.get_height()
+		ax.text(rect.get_x()+rect.get_width()/2., 1.02*height, '%10.2f' % float(height),
+				ha='center', va='bottom')
+
+autolabel(rects1)
+autolabel(rects2)
+
+plt.show()
+```
+
+![](https://pythonprogramming.net/static/images/nltk/testing-stanford-named-entity-recognition.png)
+
+## 二十四、测试 NLTK 和斯坦福 NER 标记器的速度
+
+> [Chuck Dishmon](http://chuckdishmon.github.io/) 的客座文章。
+
+我们已经测试了我们的 NER 分类器的准确性，但是在决定使用哪个分类器时，还有更多的问题需要考虑。 接下来我们来测试速度吧！
+
+我们知道我们正在比较同一个东西，我们将在同一篇文章中进行测试。 使用 NBC 新闻里的这个片段吧：
+
+```
+House Speaker John Boehner became animated Tuesday over the proposed Keystone Pipeline, castigating the Obama administration for not having approved the project yet.
+
+Republican House Speaker John Boehner says there's "nothing complex about the Keystone Pipeline," and that it's time to build it.
+
+"Complex? You think the Keystone Pipeline is complex?!" Boehner responded to a questioner. "It's been under study for five years! We build pipelines in America every day. Do you realize there are 200,000 miles of pipelines in the United States?"
+
+The speaker went on: "And the only reason the president's involved in the Keystone Pipeline is because it crosses an international boundary. Listen, we can build it. There's nothing complex about the Keystone Pipeline -- it's time to build it."
+
+Boehner said the president had no excuse at this point to not give the pipeline the go-ahead after the State Department released a report on Friday indicating the project would have a minimal impact on the environment.
+
+Republicans have long pushed for construction of the project, which enjoys some measure of Democratic support as well. The GOP is considering conditioning an extension of the debt limit on approval of the project by Obama.
+
+The White House, though, has said that it has no timetable for a final decision on the project.
+
+```
+
+首先，我们执行导入，通过阅读和分词来处理文章。
+
+```py
+# -*- coding: utf-8 -*-
+
+import nltk
+import os
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib import style
+from nltk import pos_tag
+from nltk.tag import StanfordNERTagger
+from nltk.tokenize import word_tokenize
+
+style.use('fivethirtyeight')
+
+# Process text  
+def process_text(txt_file):
+	raw_text = open("/usr/share/news_article.txt").read()
+	token_text = word_tokenize(raw_text)
+	return token_text
+```
+
+很棒！ 现在让我们写一些函数来拆分我们的分类任务。 因为 NLTK  NEG 分类器需要 POS 标签，所以我们会在我们的 NLTK 函数中加入 POS 标签。
+
+```py
+# Stanford NER tagger    
+def stanford_tagger(token_text):
+	st = StanfordNERTagger('/usr/share/stanford-ner/classifiers/english.all.3class.distsim.crf.ser.gz',
+							'/usr/share/stanford-ner/stanford-ner.jar',
+							encoding='utf-8')   
+	ne_tagged = st.tag(token_text)
+	return(ne_tagged)
+ 
+# NLTK POS and NER taggers   
+def nltk_tagger(token_text):
+	tagged_words = nltk.pos_tag(token_text)
+	ne_tagged = nltk.ne_chunk(tagged_words)
+	return(ne_tagged)
+```
+
+每个分类器都需要读取文章，并对命名实体进行分类，所以我们将这些函数包装在一个更大的函数中，使计时变得简单。
+
+```py
+def stanford_main():
+	print(stanford_tagger(process_text(txt_file)))
+
+def nltk_main():
+	print(nltk_tagger(process_text(txt_file)))
+```
+
+当我们调用我们的程序时，我们调用这些函数。 我们将在`os.times()`函数调用中包装我们的`stanford_main()`和`nltk_main()`函数，取第四个索引，它是经过的时间。 然后我们将图绘制我们的结果。
+
+```py
+if __name__ == '__main__':
+	stanford_t0 = os.times()[4]
+	stanford_main()
+	stanford_t1 = os.times()[4]
+	stanford_total_time = stanford_t1 - stanford_t0
+	
+	nltk_t0 = os.times()[4]
+	nltk_main()
+	nltk_t1 = os.times()[4]
+	nltk_total_time = nltk_t1 - nltk_t0
+	
+	time_plot(stanford_total_time, nltk_total_time)
+```
+
+对于我们的绘图，我们使用`time_plot()`函数：
+
+```py
+def time_plot(stanford_total_time, nltk_total_time):
+	N = 1
+	ind = np.arange(N)  # the x locations for the groups
+	width = 0.35       # the width of the bars
+	stanford_total_time = stanford_total_time
+	nltk_total_time = nltk_total_time   
+	fig, ax = plt.subplots()    
+	rects1 = ax.bar(ind, stanford_total_time, width, color='r')    
+	rects2 = ax.bar(ind+width, nltk_total_time, width, color='y')
+	
+	# Add text for labels, title and axes ticks
+	ax.set_xlabel('Classifier')
+	ax.set_ylabel('Time (in seconds)')
+	ax.set_title('Speed by NER Classifier')
+	ax.set_xticks(ind+width)
+	ax.set_xticklabels( ('') )   
+	ax.legend( (rects1[0], rects2[0]), ('Stanford', 'NLTK'), bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0. )
+
+	def autolabel(rects):
+		# attach some text labels
+		for rect in rects:
+			height = rect.get_height()
+			ax.text(rect.get_x()+rect.get_width()/2., 1.02*height, '%10.2f' % float(height),
+					ha='center', va='bottom')
+	
+	autolabel(rects1)
+	autolabel(rects2)    
+	plt.show()
+```
+
+哇，NLTK 像闪电一样快！ 看来斯坦福更准确，但 NLTK 更快。 当平衡我们偏爱的精确度，和所需的计算资源时，这是需要知道的重要信息。
+
+但是等等，还是有问题。我们的输出比较丑陋！ 这是斯坦福大学的一个小样本：
+
+```py
+[('House', 'ORGANIZATION'), ('Speaker', 'O'), ('John', 'PERSON'), ('Boehner', 'PERSON'), ('became', 'O'), ('animated', 'O'), ('Tuesday', 'O'), ('over', 'O'), ('the', 'O'), ('proposed', 'O'), ('Keystone', 'ORGANIZATION'), ('Pipeline', 'ORGANIZATION'), (',', 'O'), ('castigating', 'O'), ('the', 'O'), ('Obama', 'PERSON'), ('administration', 'O'), ('for', 'O'), ('not', 'O'), ('having', 'O'), ('approved', 'O'), ('the', 'O'), ('project', 'O'), ('yet', 'O'), ('.', 'O')
+
+```
+
+以及 NLTK：
+
+```
+(S
+  (ORGANIZATION House/NNP)
+  Speaker/NNP
+  (PERSON John/NNP Boehner/NNP)
+  became/VBD
+  animated/VBN
+  Tuesday/NNP
+  over/IN
+  the/DT
+  proposed/VBN
+  (PERSON Keystone/NNP Pipeline/NNP)
+  ,/,
+  castigating/VBG
+  the/DT
+  (ORGANIZATION Obama/NNP)
+  administration/NN
+  for/IN
+  not/RB
+  having/VBG
+  approved/VBN
+  the/DT
+  project/NN
+  yet/RB
+  ./.
+```
+
+让我们在下个教程中，将它们转为可读的形式。
+
+![](https://pythonprogramming.net/static/images/nltk/stanford-nert-speed-test.png)
+
+## 使用 BIO 标签创建可读的命名实体列表
+
+> [Chuck Dishmon](http://chuckdishmon.github.io/) 的客座文章。
+
+现在我们已经完成了测试，让我们将我们的命名实体转为良好的可读格式。
+
+再次，我们将使用来自 NBC 新闻的同一篇新闻：
+
+```
+House Speaker John Boehner became animated Tuesday over the proposed Keystone Pipeline, castigating the Obama administration for not having approved the project yet.
+
+Republican House Speaker John Boehner says there's "nothing complex about the Keystone Pipeline," and that it's time to build it.
+
+"Complex? You think the Keystone Pipeline is complex?!" Boehner responded to a questioner. "It's been under study for five years! We build pipelines in America every day. Do you realize there are 200,000 miles of pipelines in the United States?"
+
+The speaker went on: "And the only reason the president's involved in the Keystone Pipeline is because it crosses an international boundary. Listen, we can build it. There's nothing complex about the Keystone Pipeline -- it's time to build it."
+
+Boehner said the president had no excuse at this point to not give the pipeline the go-ahead after the State Department released a report on Friday indicating the project would have a minimal impact on the environment.
+
+Republicans have long pushed for construction of the project, which enjoys some measure of Democratic support as well. The GOP is considering conditioning an extension of the debt limit on approval of the project by Obama.
+
+The White House, though, has said that it has no timetable for a final decision on the project.
+
+```
+
+我们的 NTLK 输出已经是树了（只需要最后一步），所以让我们来看看我们的斯坦福输出。 我们将对标记进行 BIO 标记，B 分配给命名实体的开始，I 分配给内部，O 分配给其他。 例如，如果我们的句子是`Barack Obama went to Greece today`，我们应该把它标记为`Barack-B Obama-I went-O to-O Greece-B today-O`。 为此，我们将编写一系列条件来检查当前和以前的标记的`O`标签。
+
+```py
+# -*- coding: utf-8 -*-
+
+import nltk
+import os
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib import style
+from nltk import pos_tag
+from nltk.tag import StanfordNERTagger
+from nltk.tokenize import word_tokenize
+from nltk.chunk import conlltags2tree
+from nltk.tree import Tree
+
+style.use('fivethirtyeight')
+
+# Process text  
+def process_text(txt_file):
+	raw_text = open("/usr/share/news_article.txt").read()
+	token_text = word_tokenize(raw_text)
+	return token_text
+
+# Stanford NER tagger    
+def stanford_tagger(token_text):
+	st = StanfordNERTagger('/usr/share/stanford-ner/classifiers/english.all.3class.distsim.crf.ser.gz',
+							'/usr/share/stanford-ner/stanford-ner.jar',
+							encoding='utf-8')   
+	ne_tagged = st.tag(token_text)
+	return(ne_tagged)
+ 
+# NLTK POS and NER taggers   
+def nltk_tagger(token_text):
+	tagged_words = nltk.pos_tag(token_text)
+	ne_tagged = nltk.ne_chunk(tagged_words)
+	return(ne_tagged)
+
+# Tag tokens with standard NLP BIO tags
+def bio_tagger(ne_tagged):
+		bio_tagged = []
+		prev_tag = "O"
+		for token, tag in ne_tagged:
+			if tag == "O": #O
+				bio_tagged.append((token, tag))
+				prev_tag = tag
+				continue
+			if tag != "O" and prev_tag == "O": # Begin NE
+				bio_tagged.append((token, "B-"+tag))
+				prev_tag = tag
+			elif prev_tag != "O" and prev_tag == tag: # Inside NE
+				bio_tagged.append((token, "I-"+tag))
+				prev_tag = tag
+			elif prev_tag != "O" and prev_tag != tag: # Adjacent NE
+				bio_tagged.append((token, "B-"+tag))
+				prev_tag = tag
+		return bio_tagged
+```
+
+现在我们将 BIO 标记后的标记写入树中，因此它们与 NLTK 输出格式相同。
+
+```py
+# Create tree       
+def stanford_tree(bio_tagged):
+	tokens, ne_tags = zip(*bio_tagged)
+	pos_tags = [pos for token, pos in pos_tag(tokens)]
+
+	conlltags = [(token, pos, ne) for token, pos, ne in zip(tokens, pos_tags, ne_tags)]
+	ne_tree = conlltags2tree(conlltags)
+	return ne_tree
+```
+
+遍历并解析出所有命名实体：
+
+```py
+# Parse named entities from tree
+def structure_ne(ne_tree):
+	ne = []
+	for subtree in ne_tree:
+		if type(subtree) == Tree: # If subtree is a noun chunk, i.e. NE != "O"
+			ne_label = subtree.label()
+			ne_string = " ".join([token for token, pos in subtree.leaves()])
+			ne.append((ne_string, ne_label))
+	return ne
+```
+
+在我们的调用中，我们把所有附加函数聚到一起。
+
+```py
+def stanford_main():
+	print(structure_ne(stanford_tree(bio_tagger(stanford_tagger(process_text(txt_file))))))
+
+def nltk_main():
+	print(structure_ne(nltk_tagger(process_text(txt_file))))
+```
+
+之后调用这些函数：
+
+```py
+if __name__ == '__main__':
+	stanford_main()
+	nltk_main()
+```
+
+这里是来自斯坦福的看起来不错的输出：
+
+```py
+[('House', 'ORGANIZATION'), ('John Boehner', 'PERSON'), ('Keystone Pipeline', 'ORGANIZATION'), ('Obama', 'PERSON'), ('Republican House', 'ORGANIZATION'), ('John Boehner', 'PERSON'), ('Keystone Pipeline', 'ORGANIZATION'), ('Keystone Pipeline', 'ORGANIZATION'), ('Boehner', 'PERSON'), ('America', 'LOCATION'), ('United States', 'LOCATION'), ('Keystone Pipeline', 'ORGANIZATION'), ('Keystone Pipeline', 'ORGANIZATION'), ('Boehner', 'PERSON'), ('State Department', 'ORGANIZATION'), ('Republicans', 'MISC'), ('Democratic', 'MISC'), ('GOP', 'MISC'), ('Obama', 'PERSON'), ('White House', 'LOCATION')]
+
+```
+
+以及来自 NLTK 的：
+
+```py
+[('House', 'ORGANIZATION'), ('John Boehner', 'PERSON'), ('Keystone Pipeline', 'PERSON'), ('Obama', 'ORGANIZATION'), ('Republican', 'ORGANIZATION'), ('House', 'ORGANIZATION'), ('John Boehner', 'PERSON'), ('Keystone Pipeline', 'ORGANIZATION'), ('Keystone Pipeline', 'ORGANIZATION'), ('Boehner', 'PERSON'), ('America', 'GPE'), ('United States', 'GPE'), ('Keystone Pipeline', 'ORGANIZATION'), ('Listen', 'PERSON'), ('Keystone', 'ORGANIZATION'), ('Boehner', 'PERSON'), ('State Department', 'ORGANIZATION'), ('Democratic', 'ORGANIZATION'), ('GOP', 'ORGANIZATION'), ('Obama', 'PERSON'), ('White House', 'FACILITY')]
+
+```
+
+分块在一起，可读性强。不错！
