@@ -1573,3 +1573,398 @@ voted_classifier accuracy percent: 65.66265060240963
 ```
 
 是的，我敢打赌你花了一段时间，所以，在下一个教程中，我们将谈论`pickle`所有东西！
+
+## 十九、使用 NLTK 为情感分析创建模块
+
+有了这个新的数据集和新的分类器，我们可以继续前进。 你可能已经注意到的，这个新的数据集需要更长的时间来训练，因为它是一个更大的集合。 我已经向你显示，通过`pickel`或序列化训练出来的分类器，我们实际上可以节省大量的时间，这些分类器只是对象。
+
+我已经向你证明了如何使用`pickel`来实现它，所以我鼓励你尝试自己做。 如果你需要帮助，我会粘贴完整的代码...但要注意，自己动手！
+
+这个过程需要一段时间..你可能想要干些别的。 我花了大约 30-40 分钟来全部运行完成，而我在 i7 3930k 上运行它。 在我写这篇文章的时候（2015），一般处理器可能需要几个小时。 不过这是一次性的过程。
+
+```py
+import nltk
+import random
+#from nltk.corpus import movie_reviews
+from nltk.classify.scikitlearn import SklearnClassifier
+import pickle
+from sklearn.naive_bayes import MultinomialNB, BernoulliNB
+from sklearn.linear_model import LogisticRegression, SGDClassifier
+from sklearn.svm import SVC, LinearSVC, NuSVC
+from nltk.classify import ClassifierI
+from statistics import mode
+from nltk.tokenize import word_tokenize
+
+
+
+class VoteClassifier(ClassifierI):
+    def __init__(self, *classifiers):
+        self._classifiers = classifiers
+
+    def classify(self, features):
+        votes = []
+        for c in self._classifiers:
+            v = c.classify(features)
+            votes.append(v)
+        return mode(votes)
+
+    def confidence(self, features):
+        votes = []
+        for c in self._classifiers:
+            v = c.classify(features)
+            votes.append(v)
+
+        choice_votes = votes.count(mode(votes))
+        conf = choice_votes / len(votes)
+        return conf
+    
+short_pos = open("short_reviews/positive.txt","r").read()
+short_neg = open("short_reviews/negative.txt","r").read()
+
+# move this up here
+all_words = []
+documents = []
+
+
+#  j is adject, r is adverb, and v is verb
+#allowed_word_types = ["J","R","V"]
+allowed_word_types = ["J"]
+
+for p in short_pos.split('\n'):
+    documents.append( (p, "pos") )
+    words = word_tokenize(p)
+    pos = nltk.pos_tag(words)
+    for w in pos:
+        if w[1][0] in allowed_word_types:
+            all_words.append(w[0].lower())
+
+    
+for p in short_neg.split('\n'):
+    documents.append( (p, "neg") )
+    words = word_tokenize(p)
+    pos = nltk.pos_tag(words)
+    for w in pos:
+        if w[1][0] in allowed_word_types:
+            all_words.append(w[0].lower())
+
+
+
+save_documents = open("pickled_algos/documents.pickle","wb")
+pickle.dump(documents, save_documents)
+save_documents.close()
+
+
+all_words = nltk.FreqDist(all_words)
+
+
+word_features = list(all_words.keys())[:5000]
+
+
+save_word_features = open("pickled_algos/word_features5k.pickle","wb")
+pickle.dump(word_features, save_word_features)
+save_word_features.close()
+
+
+def find_features(document):
+    words = word_tokenize(document)
+    features = {}
+    for w in word_features:
+        features[w] = (w in words)
+
+    return features
+
+featuresets = [(find_features(rev), category) for (rev, category) in documents]
+
+random.shuffle(featuresets)
+print(len(featuresets))
+
+testing_set = featuresets[10000:]
+training_set = featuresets[:10000]
+
+
+classifier = nltk.NaiveBayesClassifier.train(training_set)
+print("Original Naive Bayes Algo accuracy percent:", (nltk.classify.accuracy(classifier, testing_set))*100)
+classifier.show_most_informative_features(15)
+
+###############
+save_classifier = open("pickled_algos/originalnaivebayes5k.pickle","wb")
+pickle.dump(classifier, save_classifier)
+save_classifier.close()
+
+MNB_classifier = SklearnClassifier(MultinomialNB())
+MNB_classifier.train(training_set)
+print("MNB_classifier accuracy percent:", (nltk.classify.accuracy(MNB_classifier, testing_set))*100)
+
+save_classifier = open("pickled_algos/MNB_classifier5k.pickle","wb")
+pickle.dump(MNB_classifier, save_classifier)
+save_classifier.close()
+
+BernoulliNB_classifier = SklearnClassifier(BernoulliNB())
+BernoulliNB_classifier.train(training_set)
+print("BernoulliNB_classifier accuracy percent:", (nltk.classify.accuracy(BernoulliNB_classifier, testing_set))*100)
+
+save_classifier = open("pickled_algos/BernoulliNB_classifier5k.pickle","wb")
+pickle.dump(BernoulliNB_classifier, save_classifier)
+save_classifier.close()
+
+LogisticRegression_classifier = SklearnClassifier(LogisticRegression())
+LogisticRegression_classifier.train(training_set)
+print("LogisticRegression_classifier accuracy percent:", (nltk.classify.accuracy(LogisticRegression_classifier, testing_set))*100)
+
+save_classifier = open("pickled_algos/LogisticRegression_classifier5k.pickle","wb")
+pickle.dump(LogisticRegression_classifier, save_classifier)
+save_classifier.close()
+
+
+LinearSVC_classifier = SklearnClassifier(LinearSVC())
+LinearSVC_classifier.train(training_set)
+print("LinearSVC_classifier accuracy percent:", (nltk.classify.accuracy(LinearSVC_classifier, testing_set))*100)
+
+save_classifier = open("pickled_algos/LinearSVC_classifier5k.pickle","wb")
+pickle.dump(LinearSVC_classifier, save_classifier)
+save_classifier.close()
+
+
+##NuSVC_classifier = SklearnClassifier(NuSVC())
+##NuSVC_classifier.train(training_set)
+##print("NuSVC_classifier accuracy percent:", (nltk.classify.accuracy(NuSVC_classifier, testing_set))*100)
+
+
+SGDC_classifier = SklearnClassifier(SGDClassifier())
+SGDC_classifier.train(training_set)
+print("SGDClassifier accuracy percent:",nltk.classify.accuracy(SGDC_classifier, testing_set)*100)
+
+save_classifier = open("pickled_algos/SGDC_classifier5k.pickle","wb")
+pickle.dump(SGDC_classifier, save_classifier)
+save_classifier.close()
+```
+
+现在，你只需要运行一次。 如果你希望，你可以随时运行它，但现在，你已经准备好了创建情绪分析模块。 这是我们称为`sentiment_mod.py`的文件：
+
+```py
+#File: sentiment_mod.py
+
+import nltk
+import random
+#from nltk.corpus import movie_reviews
+from nltk.classify.scikitlearn import SklearnClassifier
+import pickle
+from sklearn.naive_bayes import MultinomialNB, BernoulliNB
+from sklearn.linear_model import LogisticRegression, SGDClassifier
+from sklearn.svm import SVC, LinearSVC, NuSVC
+from nltk.classify import ClassifierI
+from statistics import mode
+from nltk.tokenize import word_tokenize
+
+
+
+class VoteClassifier(ClassifierI):
+    def __init__(self, *classifiers):
+        self._classifiers = classifiers
+
+    def classify(self, features):
+        votes = []
+        for c in self._classifiers:
+            v = c.classify(features)
+            votes.append(v)
+        return mode(votes)
+
+    def confidence(self, features):
+        votes = []
+        for c in self._classifiers:
+            v = c.classify(features)
+            votes.append(v)
+
+        choice_votes = votes.count(mode(votes))
+        conf = choice_votes / len(votes)
+        return conf
+
+
+documents_f = open("pickled_algos/documents.pickle", "rb")
+documents = pickle.load(documents_f)
+documents_f.close()
+
+
+
+
+word_features5k_f = open("pickled_algos/word_features5k.pickle", "rb")
+word_features = pickle.load(word_features5k_f)
+word_features5k_f.close()
+
+
+def find_features(document):
+    words = word_tokenize(document)
+    features = {}
+    for w in word_features:
+        features[w] = (w in words)
+
+    return features
+
+
+
+featuresets_f = open("pickled_algos/featuresets.pickle", "rb")
+featuresets = pickle.load(featuresets_f)
+featuresets_f.close()
+
+random.shuffle(featuresets)
+print(len(featuresets))
+
+testing_set = featuresets[10000:]
+training_set = featuresets[:10000]
+
+
+
+open_file = open("pickled_algos/originalnaivebayes5k.pickle", "rb")
+classifier = pickle.load(open_file)
+open_file.close()
+
+
+open_file = open("pickled_algos/MNB_classifier5k.pickle", "rb")
+MNB_classifier = pickle.load(open_file)
+open_file.close()
+
+
+
+open_file = open("pickled_algos/BernoulliNB_classifier5k.pickle", "rb")
+BernoulliNB_classifier = pickle.load(open_file)
+open_file.close()
+
+
+open_file = open("pickled_algos/LogisticRegression_classifier5k.pickle", "rb")
+LogisticRegression_classifier = pickle.load(open_file)
+open_file.close()
+
+
+open_file = open("pickled_algos/LinearSVC_classifier5k.pickle", "rb")
+LinearSVC_classifier = pickle.load(open_file)
+open_file.close()
+
+
+open_file = open("pickled_algos/SGDC_classifier5k.pickle", "rb")
+SGDC_classifier = pickle.load(open_file)
+open_file.close()
+
+
+
+
+voted_classifier = VoteClassifier(
+                                  classifier,
+                                  LinearSVC_classifier,
+                                  MNB_classifier,
+                                  BernoulliNB_classifier,
+                                  LogisticRegression_classifier)
+
+
+
+
+def sentiment(text):
+    feats = find_features(text)
+    return voted_classifier.classify(feats),voted_classifier.confidence(feats)
+```
+
+所以在这里，除了最终的函数外，其实并没有什么新东西，这很简单。 这个函数是我们从这里开始与之交互的关键。 这个我们称之为“情感”的函数带有一个参数，即文本。 在这里，我们用我们早已创建的`find_features`函数，来分解这些特征。 现在我们所要做的就是，使用我们的投票分类器返回分类，以及返回分类的置信度。
+
+有了这个，我们现在可以将这个文件，以及情感函数用作一个模块。 以下是使用该模块的示例脚本：
+
+```py
+import sentiment_mod as s
+
+print(s.sentiment("This movie was awesome! The acting was great, plot was wonderful, and there were pythons...so yea!"))
+print(s.sentiment("This movie was utter junk. There were absolutely 0 pythons. I don't see what the point was at all. Horrible movie, 0/10"))
+
+```
+
+正如预期的那样，带有`python`的电影的评论显然很好，没有任何`python`的电影是垃圾。 这两个都有 100% 的置信度。
+
+我花了大约 5 秒钟的时间导入模块，因为我们保存了分类器，没有保存的话可能要花 30 分钟。 多亏了`pickle` 你的时间会有很大的不同，取决于你的处理器。如果你继续下去，我会说你可能也想看看`joblib`。
+
+现在我们有了这个很棒的模块，它很容易就能工作，我们可以做什么？ 我建议我们去 Twitter 上进行实时情感分析！
+
+## 二十、NLTK Twitter 情感分析
+
+现在我们有一个情感分析模块，我们可以将它应用于任何文本，但最好是短小的文本，比如 Twitter！ 为此，我们将把本教程与 Twitter 流式 API 教程结合起来。
+
+该教程的初始代码是：
+
+```py
+from tweepy import Stream
+from tweepy import OAuthHandler
+from tweepy.streaming import StreamListener
+
+
+#consumer key, consumer secret, access token, access secret.
+ckey="fsdfasdfsafsffa"
+csecret="asdfsadfsadfsadf"
+atoken="asdf-aassdfs"
+asecret="asdfsadfsdafsdafs"
+
+class listener(StreamListener):
+
+    def on_data(self, data):
+        print(data)
+        return(True)
+
+    def on_error(self, status):
+        print status
+
+auth = OAuthHandler(ckey, csecret)
+auth.set_access_token(atoken, asecret)
+
+twitterStream = Stream(auth, listener())
+twitterStream.filter(track=["car"])
+```
+
+这足以打印包含词语`car`的流式实时推文的所有数据。 我们可以使用`json`模块，使用`json.loads(data)`来加载数据变量，然后我们可以引用特定的`tweet`：
+
+```py
+tweet = all_data["text"]
+```
+
+既然我们有了一条推文，我们可以轻易将其传入我们的`sentiment_mod `模块。
+
+```py
+from tweepy import Stream
+from tweepy import OAuthHandler
+from tweepy.streaming import StreamListener
+import json
+import sentiment_mod as s
+
+#consumer key, consumer secret, access token, access secret.
+ckey="asdfsafsafsaf"
+csecret="asdfasdfsadfsa"
+atoken="asdfsadfsafsaf-asdfsaf"
+asecret="asdfsadfsadfsadfsadfsad"
+
+from twitterapistuff import *
+
+class listener(StreamListener):
+
+    def on_data(self, data):
+
+		all_data = json.loads(data)
+
+		tweet = all_data["text"]
+		sentiment_value, confidence = s.sentiment(tweet)
+		print(tweet, sentiment_value, confidence)
+
+		if confidence*100 >= 80:
+			output = open("twitter-out.txt","a")
+			output.write(sentiment_value)
+			output.write('\n')
+			output.close()
+
+		return True
+
+    def on_error(self, status):
+        print(status)
+
+auth = OAuthHandler(ckey, csecret)
+auth.set_access_token(atoken, asecret)
+
+twitterStream = Stream(auth, listener())
+twitterStream.filter(track=["happy"])
+```
+
+除此之外，我们还将结果保存到输出文件`twitter-out.txt`中。
+
+接下来，什么没有图表的数据分析是完整的？ 让我们再结合另一个教程，从 Twitter API 上的情感分析绘制实时流式图。
