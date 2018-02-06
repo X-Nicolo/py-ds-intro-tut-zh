@@ -932,3 +932,98 @@ featuresets = [(find_features(rev), category) for (rev, category) in documents]
 ```
 
 真棒，现在我们有了特征和标签，接下来是什么？ 通常，下一步是继续并训练算法，然后对其进行测试。 所以，让我们继续这样做，从下一个教程中的朴素贝叶斯分类器开始！
+
+## 十三、NLTK 朴素贝叶斯分类器
+
+现在是时候选择一个算法，将我们的数据分成训练和测试集，然后启动！我们首先要使用的算法是朴素贝叶斯分类器。这是一个非常受欢迎的文本分类算法，所以我们只能先试一试。然而，在我们可以训练和测试我们的算法之前，我们需要先把数据分解成训练集和测试集。
+
+你可以训练和测试同一个数据集，但是这会给你带来一些严重的偏差问题，所以你不应该训练和测试完全相同的数据。为此，由于我们已经打乱了数据集，因此我们将首先将包含正面和负面评论的 1900 个乱序评论作为训练集。然后，我们可以在最后的 100 个上测试，看看我们有多准确。
+
+这被称为监督机器学习，因为我们正在向机器展示数据，并告诉它“这个数据是正面的”，或者“这个数据是负面的”。然后，在完成训练之后，我们向机器展示一些新的数据，并根据我们之前教过计算机的内容询问计算机，计算机认为新数据的类别是什么。
+
+我们可以用以下方式分割数据：
+
+```py
+# set that we'll train our classifier with
+training_set = featuresets[:1900]
+
+# set that we'll test against.
+testing_set = featuresets[1900:]
+```
+
+下面，我们可以定义并训练我们的分类器：
+
+```py
+classifier = nltk.NaiveBayesClassifier.train(training_set)
+```
+
+首先，我们只是简单调用朴素贝叶斯分类器，然后在一行中使用`.train()`进行训练。
+
+足够简单，现在它得到了训练。 接下来，我们可以测试它：
+
+```py
+print("Classifier accuracy percent:",(nltk.classify.accuracy(classifier, testing_set))*100)
+```
+
+砰，你得到了你的答案。 如果你错过了，我们可以“测试”数据的原因是，我们仍然有正确的答案。 因此，在测试中，我们向计算机展示数据，而不提供正确的答案。 如果它正确猜测我们所知的答案，那么计算机是正确的。 考虑到我们所做的打乱，你和我可能准确度不同，但你应该看到准确度平均为 60-75%。
+
+接下来，我们可以进一步了解正面或负面评论中最有价值的词汇：
+
+```py
+classifier.show_most_informative_features(15)
+```
+
+这对于每个人都不一样，但是你应该看到这样的东西：
+
+```
+Most Informative Features
+insulting = True neg : pos = 10.6 : 1.0
+ludicrous = True neg : pos = 10.1 : 1.0
+winslet = True pos : neg = 9.0 : 1.0
+detract = True pos : neg = 8.4 : 1.0
+breathtaking = True pos : neg = 8.1 : 1.0
+silverstone = True neg : pos = 7.6 : 1.0
+excruciatingly = True neg : pos = 7.6 : 1.0
+warns = True pos : neg = 7.0 : 1.0
+tracy = True pos : neg = 7.0 : 1.0
+insipid = True neg : pos = 7.0 : 1.0
+freddie = True neg : pos = 7.0 : 1.0
+damon = True pos : neg = 5.9 : 1.0
+debate = True pos : neg = 5.9 : 1.0
+ordered = True pos : neg = 5.8 : 1.0
+lang = True pos : neg = 5.7 : 1.0
+```
+
+这个告诉你的是，每一个词的负面到正面的出现几率，或相反。 因此，在这里，我们可以看到，负面评论中的`insulting`一词比正面评论多出现 10.6 倍。`Ludicrous`是 10.1。
+
+现在，让我们假设，你完全满意你的结果，你想要继续，也许使用这个分类器来预测现在的事情。 训练分类器，并且每当你需要使用分类器时，都要重新训练，是非常不切实际的。 因此，您可以使用`pickle`模块保存分类器。 我们接下来做。
+
+## 十四、使用 NLTK 保存分类器
+
+训练分类器和机器学习算法可能需要很长时间，特别是如果您在更大的数据集上训练。 我们的其实很小。 你可以想象，每次你想开始使用分类器的时候，都要训练分类器吗？ 这么恐怖！ 相反，我们可以使用`pickle`模块，并序列化我们的分类器对象，这样我们所需要做的就是简单加载该文件。
+
+那么，我们该怎么做呢？ 第一步是保存对象。 为此，首先需要在脚本的顶部导入`pickle`，然后在使用`.train()`分类器进行训练后，可以调用以下几行：
+
+```py
+save_classifier = open("naivebayes.pickle","wb")
+pickle.dump(classifier, save_classifier)
+save_classifier.close()
+```
+
+这打开了一个`pickle`文件，准备按字节写入一些数据。 然后，我们使用`pickle.dump()`来转储数据。 `pickle.dump()`的第一个参数是你写入的东西，第二个参数是你写入它的地方。
+
+之后，我们按照我们的要求关闭文件，这就是说，我们现在在脚本的目录中保存了一个`pickle`或序列化的对象！
+
+接下来，我们如何开始使用这个分类器？ `.pickle`文件是序列化的对象，我们现在需要做的就是将其读入内存，这与读取任何其他普通文件一样简单。 这样做：
+
+```py
+classifier_f = open("naivebayes.pickle", "rb")
+classifier = pickle.load(classifier_f)
+classifier_f.close()
+```
+
+在这里，我们执行了非常相似的过程。 我们打开文件来读取字节。 然后，我们使用`pickle.load()`来加载文件，并将数据保存到分类器变量中。 然后我们关闭文件，就是这样。 我们现在有了和以前一样的分类器对象！
+
+现在，我们可以使用这个对象，每当我们想用它来分类时，我们不再需要训练我们的分类器。
+
+虽然这一切都很好，但是我们可能不太满意我们所获得的 60-75% 的准确度。 其他分类器呢？ 其实，有很多分类器，但我们需要 scikit-learn（sklearn）模块。 幸运的是，NLTK 的员工认识到将 sklearn 模块纳入 NLTK 的价值，他们为我们构建了一个小 API。 这就是我们将在下一个教程中做的事情。
