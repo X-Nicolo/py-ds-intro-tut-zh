@@ -1027,3 +1027,321 @@ classifier_f.close()
 现在，我们可以使用这个对象，每当我们想用它来分类时，我们不再需要训练我们的分类器。
 
 虽然这一切都很好，但是我们可能不太满意我们所获得的 60-75% 的准确度。 其他分类器呢？ 其实，有很多分类器，但我们需要 scikit-learn（sklearn）模块。 幸运的是，NLTK 的员工认识到将 sklearn 模块纳入 NLTK 的价值，他们为我们构建了一个小 API。 这就是我们将在下一个教程中做的事情。
+
+## 十五、NLTK 和 Sklearn
+
+现在我们已经看到，使用分类器是多么容易，现在我们想尝试更多东西！ Python 的最好的模块是 Scikit-learn（sklearn）模块。
+
+如果您想了解 Scikit-learn 模块的更多信息，我有一些关于 Scikit-Learn 机器学习的教程。
+
+幸运的是，对于我们来说，NLTK 背后的人们更看重将 sklearn 模块纳入NLTK分类器方法的价值。 就这样，他们创建了各种`SklearnClassifier` API。 要使用它，你只需要像下面这样导入它：
+
+```py
+from nltk.classify.scikitlearn import SklearnClassifier
+```
+
+从这里开始，你可以使用任何`sklearn`分类器。 例如，让我们引入更多的朴素贝叶斯算法的变体：
+
+```py
+from sklearn.naive_bayes import MultinomialNB,BernoulliNB
+```
+
+之后，如何使用它们？结果是，这非常简单。
+
+```py
+MNB_classifier = SklearnClassifier(MultinomialNB())
+MNB_classifier.train(training_set)
+print("MultinomialNB accuracy percent:",nltk.classify.accuracy(MNB_classifier, testing_set))
+
+BNB_classifier = SklearnClassifier(BernoulliNB())
+BNB_classifier.train(training_set)
+print("BernoulliNB accuracy percent:",nltk.classify.accuracy(BNB_classifier, testing_set))
+
+```
+
+就是这么简单。让我们引入更多东西：
+
+```py
+from sklearn.linear_model import LogisticRegression,SGDClassifier
+from sklearn.svm import SVC, LinearSVC, NuSVC
+```
+
+现在，我们所有分类器应该是这样：
+
+```py
+print("Original Naive Bayes Algo accuracy percent:", (nltk.classify.accuracy(classifier, testing_set))*100)
+classifier.show_most_informative_features(15)
+
+MNB_classifier = SklearnClassifier(MultinomialNB())
+MNB_classifier.train(training_set)
+print("MNB_classifier accuracy percent:", (nltk.classify.accuracy(MNB_classifier, testing_set))*100)
+
+BernoulliNB_classifier = SklearnClassifier(BernoulliNB())
+BernoulliNB_classifier.train(training_set)
+print("BernoulliNB_classifier accuracy percent:", (nltk.classify.accuracy(BernoulliNB_classifier, testing_set))*100)
+
+LogisticRegression_classifier = SklearnClassifier(LogisticRegression())
+LogisticRegression_classifier.train(training_set)
+print("LogisticRegression_classifier accuracy percent:", (nltk.classify.accuracy(LogisticRegression_classifier, testing_set))*100)
+
+SGDClassifier_classifier = SklearnClassifier(SGDClassifier())
+SGDClassifier_classifier.train(training_set)
+print("SGDClassifier_classifier accuracy percent:", (nltk.classify.accuracy(SGDClassifier_classifier, testing_set))*100)
+
+SVC_classifier = SklearnClassifier(SVC())
+SVC_classifier.train(training_set)
+print("SVC_classifier accuracy percent:", (nltk.classify.accuracy(SVC_classifier, testing_set))*100)
+
+LinearSVC_classifier = SklearnClassifier(LinearSVC())
+LinearSVC_classifier.train(training_set)
+print("LinearSVC_classifier accuracy percent:", (nltk.classify.accuracy(LinearSVC_classifier, testing_set))*100)
+
+NuSVC_classifier = SklearnClassifier(NuSVC())
+NuSVC_classifier.train(training_set)
+print("NuSVC_classifier accuracy percent:", (nltk.classify.accuracy(NuSVC_classifier, testing_set))*100)
+```
+
+运行它的结果应该是这样：
+
+```
+Original Naive Bayes Algo accuracy percent: 63.0
+Most Informative Features
+                thematic = True              pos : neg    =      9.1 : 1.0
+                secondly = True              pos : neg    =      8.5 : 1.0
+                narrates = True              pos : neg    =      7.8 : 1.0
+                 rounded = True              pos : neg    =      7.1 : 1.0
+                 supreme = True              pos : neg    =      7.1 : 1.0
+                 layered = True              pos : neg    =      7.1 : 1.0
+                  crappy = True              neg : pos    =      6.9 : 1.0
+               uplifting = True              pos : neg    =      6.2 : 1.0
+                     ugh = True              neg : pos    =      5.3 : 1.0
+                   mamet = True              pos : neg    =      5.1 : 1.0
+                 gaining = True              pos : neg    =      5.1 : 1.0
+                   wanda = True              neg : pos    =      4.9 : 1.0
+                   onset = True              neg : pos    =      4.9 : 1.0
+               fantastic = True              pos : neg    =      4.5 : 1.0
+                kentucky = True              pos : neg    =      4.4 : 1.0
+MNB_classifier accuracy percent: 66.0
+BernoulliNB_classifier accuracy percent: 72.0
+LogisticRegression_classifier accuracy percent: 64.0
+SGDClassifier_classifier accuracy percent: 61.0
+SVC_classifier accuracy percent: 45.0
+LinearSVC_classifier accuracy percent: 68.0
+NuSVC_classifier accuracy percent: 59.0
+```
+
+所以，我们可以看到，SVC 的错误比正确更常见，所以我们可能应该丢弃它。 但是呢？ 接下来我们可以尝试一次使用所有这些算法。 一个算法的算法！ 为此，我们可以创建另一个分类器，并根据其他算法的结果来生成分类器的结果。 有点像投票系统，所以我们只需要奇数数量的算法。 这就是我们将在下一个教程中讨论的内容。
+
+## 十六、使用 NLTK 组合算法
+
+现在我们知道如何使用一堆算法分类器，就像糖果岛上的一个孩子，告诉他们只能选择一个，我们可能会发现很难只选择一个分类器。 好消息是，你不必这样！ 组合分类器算法是一种常用的技术，通过创建一种投票系统来实现，每个算法拥有一票，选择得票最多分类。
+
+为此，我们希望我们的新分类器的工作方式像典型的 NLTK 分类器，并拥有所有方法。 很简单，使用面向对象编程，我们可以确保从 NLTK 分类器类继承。 为此，我们将导入它：
+
+```py
+from nltk.classify import ClassifierI
+from statistics import mode
+```
+
+我们也导入`mode`（众数），因为这将是我们选择最大计数的方法。
+
+现在，我们来建立我们的分类器类：
+
+```py
+class VoteClassifier(ClassifierI):
+    def __init__(self, *classifiers):
+        self._classifiers = classifiers
+```
+
+我们把我们的类叫做`VoteClassifier`，我们继承了 NLTK 的`ClassifierI`。 接下来，我们将传递给我们的类的分类器列表赋给`self._classifiers`。
+
+接下来，我们要继续创建我们自己的分类方法。 我们打算把它称为`.classify`，以便我们可以稍后调用`.classify`，就像传统的 NLTK 分类器那样。
+
+```py
+    def classify(self, features):
+        votes = []
+        for c in self._classifiers:
+            v = c.classify(features)
+            votes.append(v)
+        return mode(votes)
+```
+
+很简单，我们在这里所做的就是，遍历我们的分类器对象列表。 然后，对于每一个，我们要求它基于特征分类。 分类被视为投票。 遍历完成后，我们返回`mode(votes)`，这只是返回投票的众数。
+
+这是我们真正需要的，但是我认为另一个参数，置信度是有用的。 由于我们有了投票算法，所以我们也可以统计支持和反对票数，并称之为“置信度”。 例如，3/5 票的置信度弱于 5/5 票。 因此，我们可以从字面上返回投票比例，作为一种置信度指标。 这是我们的置信度方法：
+
+```py
+    def confidence(self, features):
+        votes = []
+        for c in self._classifiers:
+            v = c.classify(features)
+            votes.append(v)
+
+        choice_votes = votes.count(mode(votes))
+        conf = choice_votes / len(votes)
+        return conf
+```
+
+现在，让我们把东西放到一起：
+
+```py
+import nltk
+import random
+from nltk.corpus import movie_reviews
+from nltk.classify.scikitlearn import SklearnClassifier
+import pickle
+
+from sklearn.naive_bayes import MultinomialNB, BernoulliNB
+from sklearn.linear_model import LogisticRegression, SGDClassifier
+from sklearn.svm import SVC, LinearSVC, NuSVC
+
+from nltk.classify import ClassifierI
+from statistics import mode
+
+
+class VoteClassifier(ClassifierI):
+    def __init__(self, *classifiers):
+        self._classifiers = classifiers
+
+    def classify(self, features):
+        votes = []
+        for c in self._classifiers:
+            v = c.classify(features)
+            votes.append(v)
+        return mode(votes)
+
+    def confidence(self, features):
+        votes = []
+        for c in self._classifiers:
+            v = c.classify(features)
+            votes.append(v)
+
+        choice_votes = votes.count(mode(votes))
+        conf = choice_votes / len(votes)
+        return conf
+
+documents = [(list(movie_reviews.words(fileid)), category)
+             for category in movie_reviews.categories()
+             for fileid in movie_reviews.fileids(category)]
+
+random.shuffle(documents)
+
+all_words = []
+
+for w in movie_reviews.words():
+    all_words.append(w.lower())
+
+all_words = nltk.FreqDist(all_words)
+
+word_features = list(all_words.keys())[:3000]
+
+def find_features(document):
+    words = set(document)
+    features = {}
+    for w in word_features:
+        features[w] = (w in words)
+
+    return features
+
+#print((find_features(movie_reviews.words('neg/cv000_29416.txt'))))
+
+featuresets = [(find_features(rev), category) for (rev, category) in documents]
+        
+training_set = featuresets[:1900]
+testing_set =  featuresets[1900:]
+
+#classifier = nltk.NaiveBayesClassifier.train(training_set)
+
+classifier_f = open("naivebayes.pickle","rb")
+classifier = pickle.load(classifier_f)
+classifier_f.close()
+
+
+
+
+print("Original Naive Bayes Algo accuracy percent:", (nltk.classify.accuracy(classifier, testing_set))*100)
+classifier.show_most_informative_features(15)
+
+MNB_classifier = SklearnClassifier(MultinomialNB())
+MNB_classifier.train(training_set)
+print("MNB_classifier accuracy percent:", (nltk.classify.accuracy(MNB_classifier, testing_set))*100)
+
+BernoulliNB_classifier = SklearnClassifier(BernoulliNB())
+BernoulliNB_classifier.train(training_set)
+print("BernoulliNB_classifier accuracy percent:", (nltk.classify.accuracy(BernoulliNB_classifier, testing_set))*100)
+
+LogisticRegression_classifier = SklearnClassifier(LogisticRegression())
+LogisticRegression_classifier.train(training_set)
+print("LogisticRegression_classifier accuracy percent:", (nltk.classify.accuracy(LogisticRegression_classifier, testing_set))*100)
+
+SGDClassifier_classifier = SklearnClassifier(SGDClassifier())
+SGDClassifier_classifier.train(training_set)
+print("SGDClassifier_classifier accuracy percent:", (nltk.classify.accuracy(SGDClassifier_classifier, testing_set))*100)
+
+##SVC_classifier = SklearnClassifier(SVC())
+##SVC_classifier.train(training_set)
+##print("SVC_classifier accuracy percent:", (nltk.classify.accuracy(SVC_classifier, testing_set))*100)
+
+LinearSVC_classifier = SklearnClassifier(LinearSVC())
+LinearSVC_classifier.train(training_set)
+print("LinearSVC_classifier accuracy percent:", (nltk.classify.accuracy(LinearSVC_classifier, testing_set))*100)
+
+NuSVC_classifier = SklearnClassifier(NuSVC())
+NuSVC_classifier.train(training_set)
+print("NuSVC_classifier accuracy percent:", (nltk.classify.accuracy(NuSVC_classifier, testing_set))*100)
+
+
+voted_classifier = VoteClassifier(classifier,
+                                  NuSVC_classifier,
+                                  LinearSVC_classifier,
+                                  SGDClassifier_classifier,
+                                  MNB_classifier,
+                                  BernoulliNB_classifier,
+                                  LogisticRegression_classifier)
+
+print("voted_classifier accuracy percent:", (nltk.classify.accuracy(voted_classifier, testing_set))*100)
+
+print("Classification:", voted_classifier.classify(testing_set[0][0]), "Confidence %:",voted_classifier.confidence(testing_set[0][0])*100)
+print("Classification:", voted_classifier.classify(testing_set[1][0]), "Confidence %:",voted_classifier.confidence(testing_set[1][0])*100)
+print("Classification:", voted_classifier.classify(testing_set[2][0]), "Confidence %:",voted_classifier.confidence(testing_set[2][0])*100)
+print("Classification:", voted_classifier.classify(testing_set[3][0]), "Confidence %:",voted_classifier.confidence(testing_set[3][0])*100)
+print("Classification:", voted_classifier.classify(testing_set[4][0]), "Confidence %:",voted_classifier.confidence(testing_set[4][0])*100)
+print("Classification:", voted_classifier.classify(testing_set[5][0]), "Confidence %:",voted_classifier.confidence(testing_set[5][0])*100)
+
+```
+
+所以到了最后，我们对文本运行一些分类器示例。我们所有输出：
+
+```
+Original Naive Bayes Algo accuracy percent: 66.0
+Most Informative Features
+                thematic = True              pos : neg    =      9.1 : 1.0
+                secondly = True              pos : neg    =      8.5 : 1.0
+                narrates = True              pos : neg    =      7.8 : 1.0
+                 layered = True              pos : neg    =      7.1 : 1.0
+                 rounded = True              pos : neg    =      7.1 : 1.0
+                 supreme = True              pos : neg    =      7.1 : 1.0
+                  crappy = True              neg : pos    =      6.9 : 1.0
+               uplifting = True              pos : neg    =      6.2 : 1.0
+                     ugh = True              neg : pos    =      5.3 : 1.0
+                 gaining = True              pos : neg    =      5.1 : 1.0
+                   mamet = True              pos : neg    =      5.1 : 1.0
+                   wanda = True              neg : pos    =      4.9 : 1.0
+                   onset = True              neg : pos    =      4.9 : 1.0
+               fantastic = True              pos : neg    =      4.5 : 1.0
+                   milos = True              pos : neg    =      4.4 : 1.0
+MNB_classifier accuracy percent: 67.0
+BernoulliNB_classifier accuracy percent: 67.0
+LogisticRegression_classifier accuracy percent: 68.0
+SGDClassifier_classifier accuracy percent: 57.99999999999999
+LinearSVC_classifier accuracy percent: 67.0
+NuSVC_classifier accuracy percent: 65.0
+voted_classifier accuracy percent: 65.0
+Classification: neg Confidence %: 100.0
+Classification: pos Confidence %: 57.14285714285714
+Classification: neg Confidence %: 57.14285714285714
+Classification: neg Confidence %: 57.14285714285714
+Classification: pos Confidence %: 57.14285714285714
+Classification: pos Confidence %: 85.71428571428571
+```
+
