@@ -1345,3 +1345,231 @@ Classification: pos Confidence %: 57.14285714285714
 Classification: pos Confidence %: 85.71428571428571
 ```
 
+## 十七、使用 NLTK 调查偏差
+
+在本教程中，我们将讨论一些问题。最主要的问题是我们有一个相当有偏差的算法。你可以通过注释掉文档的打乱，然后使用前 1900 个进行训练，并留下最后的 100 个（所有正面）评论来测试它。测试它，你会发现你的准确性很差。
+
+相反，你可以使用前 100 个数据进行测试，所有的数据都是负面的，并且使用后 1900 个训练。在这里你会发现准确度非常高。这是一个不好的迹象。这可能意味着很多东西，我们有很多选择来解决它。
+
+也就是说，我们所考虑的项目建议我们继续，并使用不同的数据集，所以我们会这样做。最后，我们会发现这个新的数据集仍然存在一些偏差，那就是它更经常选择负面的东西。原因是负面评论的负面往往比正面评论的正面程度更大。这个可以用一些简单的加权来完成，但是它也可以变得很复杂。也许是另一天的教程。现在，我们要抓取一个新的数据集，我们将在下一个教程中讨论这个数据集。
+
+## 十八、使用 NLTK 改善情感分析的训练数据
+
+所以现在是时候在新的数据集上训练了。 我们的目标是分析 Twitter 的情绪，所以我们希望数据集的每个正面和负面语句都有点短。 恰好我有 5300+ 个正面和 5300 + 个负面电影评论，这是短得多的数据集。 我们应该能从更大的训练集中获得更多的准确性，并且把 Twitter 的推文拟合得更好。
+
+我在这里托管了这两个文件，您可以通过[下载简短的评论](https://pythonprogramming.net/static/downloads/short_reviews/)来找到它们。 将这些文件保存为`positive.txt`和`negative.txt`。
+
+现在，我们可以像以前一样建立新的数据集。 需要改变什么呢？
+
+我们需要一种新的方法来创建我们的“文档”变量，然后我们还需要一种新的方法来创建`all_words`变量。 真的没问题，我是这么做的：
+
+```py
+short_pos = open("short_reviews/positive.txt","r").read()
+short_neg = open("short_reviews/negative.txt","r").read()
+
+documents = []
+
+for r in short_pos.split('\n'):
+    documents.append( (r, "pos") )
+
+for r in short_neg.split('\n'):
+    documents.append( (r, "neg") )
+
+
+all_words = []
+
+short_pos_words = word_tokenize(short_pos)
+short_neg_words = word_tokenize(short_neg)
+
+for w in short_pos_words:
+    all_words.append(w.lower())
+
+for w in short_neg_words:
+    all_words.append(w.lower())
+
+all_words = nltk.FreqDist(all_words)
+```
+
+接下来，我们还需要调整我们的特征查找功能，主要是按照文档中的单词进行标记，因为我们的新样本没有漂亮的`.words()`特征。 我继续并增加了最常见的词语：
+
+```py
+word_features = list(all_words.keys())[:5000]
+
+def find_features(document):
+    words = word_tokenize(document)
+    features = {}
+    for w in word_features:
+        features[w] = (w in words)
+
+    return features
+	
+featuresets = [(find_features(rev), category) for (rev, category) in documents]
+random.shuffle(featuresets)
+```
+
+除此之外，其余的都是一样的。 这是完整的脚本，以防万一你或我错过了一些东西：
+
+这个过程需要一段时间..你可能想要干些别的。 我花了大约 30-40 分钟来全部运行完成，而我在 i7 3930k 上运行它。 在我写这篇文章的时候（2015），一般处理器可能需要几个小时。 不过这是一次性的过程。
+
+```py
+import nltk
+import random
+from nltk.corpus import movie_reviews
+from nltk.classify.scikitlearn import SklearnClassifier
+import pickle
+
+from sklearn.naive_bayes import MultinomialNB, BernoulliNB
+from sklearn.linear_model import LogisticRegression, SGDClassifier
+from sklearn.svm import SVC, LinearSVC, NuSVC
+
+from nltk.classify import ClassifierI
+from statistics import mode
+
+from nltk.tokenize import word_tokenize
+
+
+class VoteClassifier(ClassifierI):
+    def __init__(self, *classifiers):
+        self._classifiers = classifiers
+
+    def classify(self, features):
+        votes = []
+        for c in self._classifiers:
+            v = c.classify(features)
+            votes.append(v)
+        return mode(votes)
+
+    def confidence(self, features):
+        votes = []
+        for c in self._classifiers:
+            v = c.classify(features)
+            votes.append(v)
+
+        choice_votes = votes.count(mode(votes))
+        conf = choice_votes / len(votes)
+        return conf
+        
+short_pos = open("short_reviews/positive.txt","r").read()
+short_neg = open("short_reviews/negative.txt","r").read()
+
+documents = []
+
+for r in short_pos.split('\n'):
+    documents.append( (r, "pos") )
+
+for r in short_neg.split('\n'):
+    documents.append( (r, "neg") )
+
+
+all_words = []
+
+short_pos_words = word_tokenize(short_pos)
+short_neg_words = word_tokenize(short_neg)
+
+for w in short_pos_words:
+    all_words.append(w.lower())
+
+for w in short_neg_words:
+    all_words.append(w.lower())
+
+all_words = nltk.FreqDist(all_words)
+
+word_features = list(all_words.keys())[:5000]
+
+def find_features(document):
+    words = word_tokenize(document)
+    features = {}
+    for w in word_features:
+        features[w] = (w in words)
+
+    return features
+
+#print((find_features(movie_reviews.words('neg/cv000_29416.txt'))))
+
+featuresets = [(find_features(rev), category) for (rev, category) in documents]
+
+random.shuffle(featuresets)
+
+# positive data example:      
+training_set = featuresets[:10000]
+testing_set =  featuresets[10000:]
+
+##
+### negative data example:      
+##training_set = featuresets[100:]
+##testing_set =  featuresets[:100]
+
+
+classifier = nltk.NaiveBayesClassifier.train(training_set)
+print("Original Naive Bayes Algo accuracy percent:", (nltk.classify.accuracy(classifier, testing_set))*100)
+classifier.show_most_informative_features(15)
+
+MNB_classifier = SklearnClassifier(MultinomialNB())
+MNB_classifier.train(training_set)
+print("MNB_classifier accuracy percent:", (nltk.classify.accuracy(MNB_classifier, testing_set))*100)
+
+BernoulliNB_classifier = SklearnClassifier(BernoulliNB())
+BernoulliNB_classifier.train(training_set)
+print("BernoulliNB_classifier accuracy percent:", (nltk.classify.accuracy(BernoulliNB_classifier, testing_set))*100)
+
+LogisticRegression_classifier = SklearnClassifier(LogisticRegression())
+LogisticRegression_classifier.train(training_set)
+print("LogisticRegression_classifier accuracy percent:", (nltk.classify.accuracy(LogisticRegression_classifier, testing_set))*100)
+
+SGDClassifier_classifier = SklearnClassifier(SGDClassifier())
+SGDClassifier_classifier.train(training_set)
+print("SGDClassifier_classifier accuracy percent:", (nltk.classify.accuracy(SGDClassifier_classifier, testing_set))*100)
+
+##SVC_classifier = SklearnClassifier(SVC())
+##SVC_classifier.train(training_set)
+##print("SVC_classifier accuracy percent:", (nltk.classify.accuracy(SVC_classifier, testing_set))*100)
+
+LinearSVC_classifier = SklearnClassifier(LinearSVC())
+LinearSVC_classifier.train(training_set)
+print("LinearSVC_classifier accuracy percent:", (nltk.classify.accuracy(LinearSVC_classifier, testing_set))*100)
+
+NuSVC_classifier = SklearnClassifier(NuSVC())
+NuSVC_classifier.train(training_set)
+print("NuSVC_classifier accuracy percent:", (nltk.classify.accuracy(NuSVC_classifier, testing_set))*100)
+
+
+voted_classifier = VoteClassifier(
+                                  NuSVC_classifier,
+                                  LinearSVC_classifier,
+                                  MNB_classifier,
+                                  BernoulliNB_classifier,
+                                  LogisticRegression_classifier)
+
+print("voted_classifier accuracy percent:", (nltk.classify.accuracy(voted_classifier, testing_set))*100)
+```
+
+输出：
+
+```
+Original Naive Bayes Algo accuracy percent: 66.26506024096386
+Most Informative Features
+              refreshing = True              pos : neg    =     13.6 : 1.0
+                captures = True              pos : neg    =     11.3 : 1.0
+                  stupid = True              neg : pos    =     10.7 : 1.0
+                  tender = True              pos : neg    =      9.6 : 1.0
+              meandering = True              neg : pos    =      9.1 : 1.0
+                      tv = True              neg : pos    =      8.6 : 1.0
+                 low-key = True              pos : neg    =      8.3 : 1.0
+              thoughtful = True              pos : neg    =      8.1 : 1.0
+                   banal = True              neg : pos    =      7.7 : 1.0
+              amateurish = True              neg : pos    =      7.7 : 1.0
+                terrific = True              pos : neg    =      7.6 : 1.0
+                  record = True              pos : neg    =      7.6 : 1.0
+             captivating = True              pos : neg    =      7.6 : 1.0
+                portrait = True              pos : neg    =      7.4 : 1.0
+                 culture = True              pos : neg    =      7.3 : 1.0
+MNB_classifier accuracy percent: 65.8132530120482
+BernoulliNB_classifier accuracy percent: 66.71686746987952
+LogisticRegression_classifier accuracy percent: 67.16867469879519
+SGDClassifier_classifier accuracy percent: 65.8132530120482
+LinearSVC_classifier accuracy percent: 66.71686746987952
+NuSVC_classifier accuracy percent: 60.09036144578314
+voted_classifier accuracy percent: 65.66265060240963
+```
+
+是的，我敢打赌你花了一段时间，所以，在下一个教程中，我们将谈论`pickle`所有东西！
