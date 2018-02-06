@@ -1968,3 +1968,102 @@ twitterStream.filter(track=["happy"])
 除此之外，我们还将结果保存到输出文件`twitter-out.txt`中。
 
 接下来，什么没有图表的数据分析是完整的？ 让我们再结合另一个教程，从 Twitter API 上的情感分析绘制实时流式图。
+
+## 二十一，使用 NLTK 绘制 Twitter 实时情感分析
+
+现在我们已经从 Twitter 流媒体 API 获得了实时数据，为什么没有显示情绪趋势的活动图呢？ 为此，我们将结合本教程和 matplotlib 绘图教程。
+
+如果您想了解代码工作原理的更多信息，请参阅该教程。 否则：
+
+```py
+import matplotlib.pyplot as plt
+import matplotlib.animation as animation
+from matplotlib import style
+import time
+
+style.use("ggplot")
+
+fig = plt.figure()
+ax1 = fig.add_subplot(1,1,1)
+
+def animate(i):
+    pullData = open("twitter-out.txt","r").read()
+    lines = pullData.split('\n')
+
+    xar = []
+    yar = []
+
+    x = 0
+    y = 0
+
+    for l in lines[-200:]:
+        x += 1
+        if "pos" in l:
+            y += 1
+        elif "neg" in l:
+            y -= 1
+
+        xar.append(x)
+        yar.append(y)
+        
+    ax1.clear()
+    ax1.plot(xar,yar)
+ani = animation.FuncAnimation(fig, animate, interval=1000)
+plt.show()
+```
+
+## 二十二、斯坦福 NER 标记器与命名实体识别
+
+> [Chuck Dishmon](http://chuckdishmon.github.io/) 的客座文章。
+
+斯坦福 NER 标记器提供了 NLTK 的命名实体识别（NER）分类器的替代方案。这个标记器在很大程度上被看作是命名实体识别的标准，但是由于它使用了先进的统计学习算法，它的计算开销比 NLTK 提供的选项更大。
+
+斯坦福 NER 标记器的一大优势是，为我们提供了几种不同的模型来提取命名实体。我们可以使用以下任何一个：
+
++   三类模型，用于识别位置，人员和组织
++   四类模型，用于识别位置，人员，组织和杂项实体
++   七类模型，识别位置，人员，组织，时间，金钱，百分比和日期
+
+为了继续，我们需要下载模型和`jar`文件，因为 NER 分类器是用 Java 编写的。这些可从[斯坦福自然语言处理小组](http://nlp.stanford.edu/software/CRF-NER.shtml#Download)免费获得。 NTLK 为了使我们方便，NLTK 提供了斯坦福标记器的包装，所以我们可以用最好的语言（当然是 Python）来使用它！
+
+传递给`StanfordNERTagger`类的参数包括：
+
++   分类模型的路径（以下使用三类模型）
++   斯坦福标记器`jar`文件的路径
++   训练数据编码（默认为 ASCII）
+
+以下是我们设置它来使用三类模型标记句子的方式：
+
+```py
+# -*- coding: utf-8 -*-
+
+from nltk.tag import StanfordNERTagger
+from nltk.tokenize import word_tokenize
+
+st = StanfordNERTagger('/usr/share/stanford-ner/classifiers/english.all.3class.distsim.crf.ser.gz',
+					   '/usr/share/stanford-ner/stanford-ner.jar',
+					   encoding='utf-8')
+
+text = 'While in France, Christine Lagarde discussed short-term stimulus efforts in a recent interview with the Wall Street Journal.'
+
+tokenized_text = word_tokenize(text)
+classified_text = st.tag(tokenized_text)
+
+print(classified_text)
+```
+
+一旦我们按照单词分词，并且对句子进行分类，我们就会看到标记器产生了如下的元组列表：
+
+```py
+[('While', 'O'), ('in', 'O'), ('France', 'LOCATION'), (',', 'O'), ('Christine', 'PERSON'), ('Lagarde', 'PERSON'), ('discussed', 'O'), ('short-term', 'O'), ('stimulus', 'O'), ('efforts', 'O'), ('in', 'O'), ('a', 'O'), ('recent', 'O'), ('interview', 'O'), ('with', 'O'), ('the', 'O'), ('Wall', 'ORGANIZATION'), ('Street', 'ORGANIZATION'), ('Journal', 'ORGANIZATION'), ('.', 'O')]
+
+```
+
+太好了！ 每个标记都使用`PERSON`，`LOCATION`，`ORGANIZATION`或`O`标记（使用我们的三类模型）。 `O`只代表其他，即非命名的实体。
+
+这个列表现在可以用于测试已标注数据了，我们将在下一个教程中介绍。
+
+## 二十三、测试 NLTK 和斯坦福 NER 标记器的准确性
+
+> [Chuck Dishmon](http://chuckdishmon.github.io/) 的客座文章。
+
