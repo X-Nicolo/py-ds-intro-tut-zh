@@ -700,3 +700,179 @@ cap.release()
 至少在这种情况下，我可能会使用中值模糊，但是不同的照明，不同的阈值/过滤器，以及其他不同的目标和目标可能会决定您使用其中一个。
 
 在下一个教程中，我们将讨论形态变换。
+
+## 九、形态变换
+
+在这个 Python OpenCV 教程中，我们将介绍形态变换。 这些是一些简单操作，我们可以基于图像形状执行。
+
+我们要谈的第一对是腐蚀和膨胀。 腐蚀是我们将“腐蚀”边缘。 它的工作方式是使用滑块（核）。 我们让滑块滑动，如果所有的像素是白色的，那么我们得到白色，否则是黑色。 这可能有助于消除一些白色噪音。 另一个版本是膨胀，它基本上是相反的：让滑块滑动，如果整个区域不是黑色的，就会转换成白色。 这是一个例子：
+
+```py
+import cv2
+import numpy as np
+
+cap = cv2.VideoCapture(0)
+
+while(1):
+
+    _, frame = cap.read()
+    hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+    
+    lower_red = np.array([30,150,50])
+    upper_red = np.array([255,255,180])
+    
+    mask = cv2.inRange(hsv, lower_red, upper_red)
+    res = cv2.bitwise_and(frame,frame, mask= mask)
+
+    kernel = np.ones((5,5),np.uint8)
+    erosion = cv2.erode(mask,kernel,iterations = 1)
+    dilation = cv2.dilate(mask,kernel,iterations = 1)
+
+    cv2.imshow('Original',frame)
+    cv2.imshow('Mask',mask)
+    cv2.imshow('Erosion',erosion)
+    cv2.imshow('Dilation',dilation)
+
+    k = cv2.waitKey(5) & 0xFF
+    if k == 27:
+        break
+
+cv2.destroyAllWindows()
+cap.release()
+```
+
+结果：
+
+![](https://pythonprogramming.net/static/images/opencv/opencv-python-dilation-erosion-tutorial.png)
+
+下一对是“开放”和“关闭”。 开放的目标是消除“假阳性”。 有时在背景中，你会得到一些像素“噪音”。 “关闭”的想法是消除假阴性。 基本上就是你检测了你的形状，例如我们的帽子，但物体仍然有一些黑色像素。 关闭将尝试清除它们。
+
+```py
+cap = cv2.VideoCapture(1)
+
+while(1):
+
+    _, frame = cap.read()
+    hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+    
+    lower_red = np.array([30,150,50])
+    upper_red = np.array([255,255,180])
+    
+    mask = cv2.inRange(hsv, lower_red, upper_red)
+    res = cv2.bitwise_and(frame,frame, mask= mask)
+
+    kernel = np.ones((5,5),np.uint8)
+    
+    opening = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+    closing = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+
+    cv2.imshow('Original',frame)
+    cv2.imshow('Mask',mask)
+    cv2.imshow('Opening',opening)
+    cv2.imshow('Closing',closing)
+
+    k = cv2.waitKey(5) & 0xFF
+    if k == 27:
+        break
+
+cv2.destroyAllWindows()
+cap.release()
+```
+
+![](https://pythonprogramming.net/static/images/opencv/opencv-python-opening-closing-tutorial.png)
+
+另外两个选项是`tophat`和`blackhat`，对我们的案例并不有用：
+
+```py
+    # It is the difference between input image and Opening of the image
+    cv2.imshow('Tophat',tophat)
+
+    # It is the difference between the closing of the input image and input image.
+    cv2.imshow('Blackhat',blackhat)
+```
+
+在下一个教程中，我们将讨论图像渐变和边缘检测。
+
+## 十、边缘检测和渐变
+
+欢迎阅读另一个 Python OpenCV 教程。 在本教程中，我们将介绍图像渐变和边缘检测。 图像渐变可以用来测量方向的强度，边缘检测就像它所说的：它找到了边缘！ 我敢打赌你肯定没看到。
+
+首先，我们来展示一些渐变的例子：
+
+```py
+import cv2
+import numpy as np
+
+cap = cv2.VideoCapture(1)
+
+while(1):
+
+    # Take each frame
+    _, frame = cap.read()
+    hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+    
+    lower_red = np.array([30,150,50])
+    upper_red = np.array([255,255,180])
+    
+    mask = cv2.inRange(hsv, lower_red, upper_red)
+    res = cv2.bitwise_and(frame,frame, mask= mask)
+
+    laplacian = cv2.Laplacian(frame,cv2.CV_64F)
+    sobelx = cv2.Sobel(frame,cv2.CV_64F,1,0,ksize=5)
+    sobely = cv2.Sobel(frame,cv2.CV_64F,0,1,ksize=5)
+
+    cv2.imshow('Original',frame)
+    cv2.imshow('Mask',mask)
+    cv2.imshow('laplacian',laplacian)
+    cv2.imshow('sobelx',sobelx)
+    cv2.imshow('sobely',sobely)
+
+    k = cv2.waitKey(5) & 0xFF
+    if k == 27:
+        break
+
+cv2.destroyAllWindows()
+cap.release()
+```
+
+![](https://pythonprogramming.net/static/images/opencv/opencv-python-gradients.jpg)
+
+如果你想知道什么是`cv2.CV_64F`，那就是数据类型。 `ksize`是核大小。 我们使用 5，所以每次查询`5×5`的渔区。
+
+虽然我们可以使用这些渐变转换为纯边缘，但我们也可以使用 Canny 边缘检测！
+
+```py
+import cv2
+import numpy as np
+
+cap = cv2.VideoCapture(0)
+
+while(1):
+
+    _, frame = cap.read()
+    hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+    
+    lower_red = np.array([30,150,50])
+    upper_red = np.array([255,255,180])
+    
+    mask = cv2.inRange(hsv, lower_red, upper_red)
+    res = cv2.bitwise_and(frame,frame, mask= mask)
+
+    cv2.imshow('Original',frame)
+    edges = cv2.Canny(frame,100,200)
+    cv2.imshow('Edges',edges)
+
+    k = cv2.waitKey(5) & 0xFF
+    if k == 27:
+        break
+
+cv2.destroyAllWindows()
+cap.release()
+```
+
+![](https://pythonprogramming.net/static/images/opencv/opencv-canny-edge-detection.png)
+
+这真是太棒了！ 但是，这并不完美。 注意阴影导致了边缘被检测到。 其中最明显的是蓝狗窝发出的阴影。
+
+在下一个 OpenCV 教程中，我们将讨论如何在其他图像中搜索和查找相同的图像模板。
+
