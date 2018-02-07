@@ -387,3 +387,188 @@ cv2.destroyAllWindows()
 
 这些是一些简单的操作。 在下一个教程中，我们将介绍一些我们可以执行的更高级的图像操作。
 
+## 五、图像算术和逻辑运算
+
+欢迎来到另一个 Python OpenCV 教程，在本教程中，我们将介绍一些简单算术运算，我们可以在图像上执行的，并解释它们的作用。 为此，我们将需要两个相同大小的图像来开始，然后是一个较小的图像和一个较大的图像。 首先，我将使用：
+
+![](https://pythonprogramming.net/static/images/opencv/3D-Matplotlib.png)
+
+和
+
+![](https://pythonprogramming.net/static/images/opencv/mainsvmimage.png)
+
+首先，让我们看看简单的加法会做什么：
+
+```py
+import cv2
+import numpy as np
+
+# 500 x 250
+img1 = cv2.imread('3D-Matplotlib.png')
+img2 = cv2.imread('mainsvmimage.png')
+
+add = img1+img2
+
+cv2.imshow('add',add)
+cv2.waitKey(0)
+cv2.destroyAllWindows()
+```
+
+结果：
+
+![](https://pythonprogramming.net/static/images/opencv/opencv-python-image-addition-tutorial.png)
+
+你不可能想要这种混乱的加法。 OpenCV 有一个“加法”方法，让我们替换以前的“加法”，看看是什么：
+
+```py
+add = cv2.add(img1,img2)
+```
+
+结果：
+
+![](https://pythonprogramming.net/static/images/opencv/opencv-add-python.png)
+
+这里可能不理想。 我们可以看到很多图像是非常“白色的”。 这是因为颜色是 0-255，其中 255 是“全亮”。 因此，例如：`(155,211,79) + (50, 170, 200) = 205, 381, 279`...转换为`(205, 255,255)`。
+
+接下来，我们可以添加图像，并可以假设每个图像都有不同的“权重”。 这是如何工作的：
+
+```py
+import cv2
+import numpy as np
+
+img1 = cv2.imread('3D-Matplotlib.png')
+img2 = cv2.imread('mainsvmimage.png')
+
+weighted = cv2.addWeighted(img1, 0.6, img2, 0.4, 0)
+cv2.imshow('weighted',weighted)
+cv2.waitKey(0)
+cv2.destroyAllWindows()
+```
+
+对于`addWeighted`方法，参数是第一个图像，权重，第二个图像，权重，然后是伽马值，这是一个光的测量值。 我们现在就把它保留为零。
+
+![](https://pythonprogramming.net/static/images/opencv/opencv-addWeighted-tutorial.png)
+
+这些是一些额外的选择，但如果你真的想将一个图像添加到另一个，最新的重叠在哪里？ 在这种情况下，你会从最大的开始，然后添加较小的图像。 为此，我们将使用相同的`3D-Matplotlib.png`图像，但使用一个新的 Python 标志：
+
+![](https://pythonprogramming.net/static/images/opencv/mainlogo.png)
+
+现在，我们可以选取这个标志，并把它放在原始图像上。 这很容易（基本上使用我们在前一个教程中使用的相同代码，我们用一个新的东西替换了图像区域（ROI）），但是如果我们只想要标志部分而不是白色背景呢？ 我们可以使用与之前用于 ROI 替换相同的原理，但是我们需要一种方法来“去除”标志的背景，使得白色不会不必要地阻挡更多背景图像。 首先我将显示完整的代码，然后解释：
+
+```py
+import cv2
+import numpy as np
+
+# Load two images
+img1 = cv2.imread('3D-Matplotlib.png')
+img2 = cv2.imread('mainlogo.png')
+
+# I want to put logo on top-left corner, So I create a ROI
+rows,cols,channels = img2.shape
+roi = img1[0:rows, 0:cols ]
+
+# Now create a mask of logo and create its inverse mask
+img2gray = cv2.cvtColor(img2,cv2.COLOR_BGR2GRAY)
+
+# add a threshold
+ret, mask = cv2.threshold(img2gray, 220, 255, cv2.THRESH_BINARY_INV)
+
+mask_inv = cv2.bitwise_not(mask)
+
+# Now black-out the area of logo in ROI
+img1_bg = cv2.bitwise_and(roi,roi,mask = mask_inv)
+
+# Take only region of logo from logo image.
+img2_fg = cv2.bitwise_and(img2,img2,mask = mask)
+
+dst = cv2.add(img1_bg,img2_fg)
+img1[0:rows, 0:cols ] = dst
+
+cv2.imshow('res',img1)
+cv2.waitKey(0)
+cv2.destroyAllWindows()
+```
+
+这里发生了很多事情，出现了一些新的东西。 我们首先看到的是一个新的阈值：`ret, mask = cv2.threshold(img2gray, 220, 255, cv2.THRESH_BINARY_INV)`。
+
+我们将在下一个教程中介绍更多的阈值，所以请继续关注具体内容，但基本上它的工作方式是根据阈值将所有像素转换为黑色或白色。 在我们的例子中，阈值是 220，但是我们可以使用其他值，或者甚至动态地选择一个，这是`ret`变量可以使用的值。 接下来，我们看到：`mask_inv = cv2.bitwise_not(mask)`。 这是一个按位操作。 基本上，这些操作符与 Python 中的典型操作符非常相似，除了一点，但我们不会在这里触及它。 在这种情况下，不可见的部分是黑色的地方。 然后，我们可以说，我们想在第一个图像中将这个区域遮住，然后将空白区域替换为图像 2 的内容。
+
+![](https://pythonprogramming.net/static/images/opencv/opencv-bitwise-threshold-example.png)
+
+下个教程中，我们深入讨论阈值。
+
+## 六、阈值
+
+欢迎阅读另一个 OpenCV 教程。在本教程中，我们将介绍图像和视频分析的阈值。阈值的思想是进一步简化视觉数据的分析。首先，你可以转换为灰度，但是你必须考虑灰度仍然有至少 255 个值。阈值可以做的事情，在最基本的层面上，是基于阈值将所有东西都转换成白色或黑色。比方说，我们希望阈值为 125（最大为 255），那么 125 以下的所有内容都将被转换为 0 或黑色，而高于 125 的所有内容都将被转换为 255 或白色。如果你像平常一样转换成灰度，你会变成白色和黑色。如果你不转换灰度，你会得到二值化的图片，但会有颜色。
+
+虽然这听起来不错，但通常不是。我们将在这里介绍多个示例和不同类型的阈值来说明这一点。我们将使用下面的图片作为我们的示例图片，但可以随意使用您自己的图片：
+
+![](https://pythonprogramming.net/static/images/opencv/bookpage.jpg)
+
+这个书的图片就是个很好的例子，说明为什么一个人可能需要阈值。 首先，背景根本没有白色，一切都是暗淡的，而且一切都是变化的。 有些部分很容易阅读，另一部分则非常暗，需要相当多的注意力才能识别出来。 首先，我们尝试一个简单的阈值：
+
+```py
+retval, threshold = cv2.threshold(img, 10, 255, cv2.THRESH_BINARY)
+```
+
+二元阈值是个简单的“是或不是”的阈值，其中像素为 255 或 0。在很多情况下，这是白色或黑色，但我们已经为我们的图像保留了颜色，所以它仍然是彩色的。 这里的第一个参数是图像。 下一个参数是阈值，我们选择 10。下一个是最大值，我们选择为 255。最后是阈值类型，我们选择了`THRESH_BINARY`。 通常情况下，10 的阈值会有点差。 我们选择 10，因为这是低光照的图片，所以我们选择低的数字。 通常 125-150 左右的东西可能效果最好。
+
+```py
+import cv2
+import numpy as np
+
+img = cv2.imread('bookpage.jpg')
+retval, threshold = cv2.threshold(img, 12, 255, cv2.THRESH_BINARY)
+cv2.imshow('original',img)
+cv2.imshow('threshold',threshold)
+cv2.waitKey(0)
+cv2.destroyAllWindows()
+```
+
+结果：
+
+![](https://pythonprogramming.net/static/images/opencv/opencv-python-binary-threshold-tutorial.png)
+
+现在的图片稍微更便于阅读了，但还是有点乱。 从视觉上来说，这样比较好，但是仍然难以使用程序来分析它。 让我们看看我们是否可以进一步简化。
+
+首先，让我们灰度化图像，然后使用一个阈值：
+
+```py
+import cv2
+import numpy as np
+
+grayscaled = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
+retval, threshold = cv2.threshold(grayscaled, 10, 255, cv2.THRESH_BINARY)
+cv2.imshow('original',img)
+cv2.imshow('threshold',threshold)
+cv2.waitKey(0)
+cv2.destroyAllWindows()
+```
+
+![](https://pythonprogramming.net/static/images/opencv/opencv-python-threshold-gray-binary-tutorial.png)
+
+更简单，但是我们仍然在这里忽略了很多背景。 接下来，我们可以尝试自适应阈值，这将尝试改变阈值，并希望弄清楚弯曲的页面。
+
+```py
+import cv2
+import numpy as np
+
+th = cv2.adaptiveThreshold(grayscaled, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 115, 1)
+cv2.imshow('original',img)
+cv2.imshow('Adaptive threshold',th)
+cv2.waitKey(0)
+cv2.destroyAllWindows()
+```
+
+![](https://pythonprogramming.net/static/images/opencv/opencv-python-adaptive-gaussian-threshold-tutorial.png)
+
+
+还有另一个版本的阈值，可以使用，叫做大津阈值。 它在这里并不能很好发挥作用，但是：
+
+```py
+retval2,threshold2 = cv2.threshold(grayscaled,125,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
+cv2.imshow('original',img)
+cv2.imshow('Otsu threshold',threshold2)
+cv2.waitKey(0)
+cv2.destroyAllWindows()
+```
