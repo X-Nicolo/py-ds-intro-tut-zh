@@ -1,6 +1,6 @@
 # 图像和视频分析
 
-# 一、Python OpenCV 入门
+## 一、Python OpenCV 入门
 
 ![](https://pythonprogramming.net/static/images/opencv/opencv-intro-tutorial-python.gif)
 
@@ -572,3 +572,131 @@ cv2.imshow('Otsu threshold',threshold2)
 cv2.waitKey(0)
 cv2.destroyAllWindows()
 ```
+
+## 七、颜色过滤
+
+在这个 Python OpenCV 教程中，我们将介绍如何创建一个过滤器，回顾按位操作，其中我们将过滤特定的颜色，试图显示它。或者，您也可以专门筛选出特定的颜色，然后将其替换为场景，就像我们用其他方法替换ROI（图像区域）一样，就像绿屏的工作方式。
+
+为了像这样过滤，你有几个选项。通常，您可能会将您的颜色转换为 HSV，即“色调饱和度纯度”。例如，这可以帮助您根据色调和饱和度范围，使用变化的值确定一个更具体的颜色。如果你希望的话，你可以实际生成基于 BGR 值的过滤器，但是这会有点困难。如果你很难可视化 HSV，不要感到失落，查看维基百科页面上的 HSV，那里有一个非常有用的图形让你可视化它。我最好亲自描述颜色的色调饱和度和纯度。现在让我们开始：
+
+```py
+import cv2
+import numpy as np
+
+cap = cv2.VideoCapture(0)
+
+while(1):
+    _, frame = cap.read()
+    hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+    
+    lower_red = np.array([30,150,50])
+    upper_red = np.array([255,255,180])
+    
+    mask = cv2.inRange(hsv, lower_red, upper_red)
+    res = cv2.bitwise_and(frame,frame, mask= mask)
+
+    cv2.imshow('frame',frame)
+    cv2.imshow('mask',mask)
+    cv2.imshow('res',res)
+    
+    k = cv2.waitKey(5) & 0xFF
+    if k == 27:
+        break
+
+cv2.destroyAllWindows()
+cap.release()
+```
+
+![](https://pythonprogramming.net/static/images/opencv/opencv-python-filtering-example.png)
+
+这只是一个例子，以红色为目标。 它的工作方式是，我们所看到的是我们范围内的任何东西，基本上是 30-255，150-255 和 50-180。 它用于红色，但可以随便尝试找到自己的颜色。 HSV 在这里效果最好的原因是，我们想要范围内的颜色，这里我们通常需要相似的颜色。 很多时候，典型的红色仍然会有一些绿色和蓝色分量，所以我们必须允许一些绿色和蓝色，但是我们会想要几乎全红。 这意味着我们会在这里获得所有颜色的低光混合。
+
+为了确定 HSV 的范围，我认为最好的方法就是试错。 OpenCV 内置了将 BGR 转换为 HSV 的方法。 如果你想挑选单一的颜色，那么 BGR 到 HSV 将会很好用。 为了教学，下面是这个代码的一个例子：
+
+```py
+    dark_red  = np.uint8([[[12,22,121]]])
+    dark_red = cv2.cvtColor(dark_red,cv2.COLOR_BGR2HSV)
+```
+
+这里的结果是一个 HSV 值，与`dark_red`值相同。这很棒...但是，同样...你遇到了颜色范围和 HSV 范围的基本问题。他们根本不同。您可能合理使用 BGR 范围，它们仍然可以工作，但是对于检测一种“颜色”，则无法正常工作。
+
+回到主代码，然而，我们首先要把帧转换成 HSV。那里没什么特别的。接下来，我们为红色指定一些 HSV 值。我们使用`inRange`函数，为我们的特定范围创建掩码。这是真或假，黑色或白色。接下来，我们通过执行按位操作来“恢复”我们的红色。基本上，我们显示了`frame and mask`。掩码的白色部分是红色范围，被转换为纯白色，而其他一切都变成黑色。最后我们展示所有东西。我选择了显示原始真，掩码和最终结果，以便更好地了解发生的事情。
+
+在下一个教程中，我们将对这个主题做一些介绍。你可能看到了，我们在这里还是有一些“噪音”。东西有颗粒感，红色中的黑点很多，还有许多其他的小色点。我们可以做一些事情，试图通过模糊和平滑来缓解这个问题，接下来我们将讨论这个问题。
+
+## 八、模糊和平滑
+
+在这个 Python OpenCV 教程中，我们将介绍如何尝试从我们的过滤器中消除噪声，例如简单的阈值，或者甚至我们以前的特定的颜色过滤器：
+
+![](https://pythonprogramming.net/static/images/opencv/opencv-python-filtering-example.png)
+
+正如你所看到的，我们有很多黑点，其中我们喜欢红色，还有很多其他的色点散落在其中。 我们可以使用各种模糊和平滑技术来尝试弥补这一点。 我们可以从一些熟悉的代码开始：
+
+```py
+import cv2
+import numpy as np
+
+cap = cv2.VideoCapture(0)
+
+while(1):
+
+    _, frame = cap.read()
+    hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+    
+    lower_red = np.array([30,150,50])
+    upper_red = np.array([255,255,180])
+    
+    mask = cv2.inRange(hsv, lower_red, upper_red)
+    res = cv2.bitwise_and(frame,frame, mask= mask)
+```
+
+现在，让我们应用一个简单的平滑，我们计算每个像素块的均值。 在我们的例子中，我们使用`15x15`正方形，这意味着我们有 225 个总像素。
+
+```py
+    kernel = np.ones((15,15),np.float32)/225
+    smoothed = cv2.filter2D(res,-1,kernel)
+    cv2.imshow('Original',frame)
+    cv2.imshow('Averaging',smoothed)
+
+    k = cv2.waitKey(5) & 0xFF
+    if k == 27:
+        break
+
+cv2.destroyAllWindows()
+cap.release()
+```
+
+![](https://pythonprogramming.net/static/images/opencv/opencv-filter2d-smoothing-python-tutorial.png)
+
+这个很简单，但是结果牺牲了很多粒度。 接下来，让我们尝试一些高斯模糊：
+
+```py
+    blur = cv2.GaussianBlur(res,(15,15),0)
+    cv2.imshow('Gaussian Blurring',blur)
+```
+
+![](https://pythonprogramming.net/static/images/opencv/opencv-gaussian-blur-python-tutorial.png)
+
+另一个选项是中值模糊：
+
+```py
+    median = cv2.medianBlur(res,15)
+    cv2.imshow('Median Blur',median)
+```
+
+![](https://pythonprogramming.net/static/images/opencv/median-blur-opencv-python-tutorial.png)
+
+最后一个选项是双向模糊：
+
+```py
+    bilateral = cv2.bilateralFilter(res,15,75,75)
+    cv2.imshow('bilateral Blur',bilateral)
+```
+
+所有模糊的对比：
+
+![](https://pythonprogramming.net/static/images/opencv/opencv-blurring-smoothing-python-tutorial.jpg)
+
+至少在这种情况下，我可能会使用中值模糊，但是不同的照明，不同的阈值/过滤器，以及其他不同的目标和目标可能会决定您使用其中一个。
+
+在下一个教程中，我们将讨论形态变换。
