@@ -876,3 +876,61 @@ cap.release()
 
 在下一个 OpenCV 教程中，我们将讨论如何在其他图像中搜索和查找相同的图像模板。
 
+## 十一、模板匹配
+
+欢迎阅读另一个 Python OpenCV 教程，在本教程中，我们将介绍对象识别的一个基本版本。 这里的想法是，给出一定的阈值，找到匹配我们提供的模板图像的相同区域。 对于具体的对象匹配，具有精确的照明/刻度/角度，这可以工作得很好。 通常会遇到这些情况的例子就是计算机上的任何 GUI。 按钮等东西总是相同的，所以你可以使用模板匹配。 结合模板匹配和一些鼠标控制，你已经实现了一个基于 Web 的机器人！
+
+首先，你需要一个主要图像和一个模板。 你应该从你正在图像中查找的“东西”选取你的模板。 我将提供一个图像作为例子，但随意使用您最喜爱的网站的图像或类似的东西。
+
+主要图像：
+
+![](https://pythonprogramming.net/static/images/opencv/opencv-template-matching-python-tutorial.jpg)
+
+我们要搜索的模板：
+
+![](https://pythonprogramming.net/static/images/opencv/opencv-template-for-matching.jpg)
+
+这只是其中一个端口，但我们很好奇，看看我们是否可以匹配任何其他端口。 我们确实要选择一个阈值，其中某种东西可能是 80% 匹配，那么我们说这就匹配。 所以，我们将开始加载和转换图像：
+
+```py
+import cv2
+import numpy as np
+
+img_rgb = cv2.imread('opencv-template-matching-python-tutorial.jpg')
+img_gray = cv2.cvtColor(img_rgb, cv2.COLOR_BGR2GRAY)
+
+template = cv2.imread('opencv-template-for-matching.jpg',0)
+w, h = template.shape[::-1]
+```
+
+到目前为止，我们加载了两个图像，转换为灰度。 我们保留原始的 RGB 图像，并创建一个灰度版本。 我之前提到过这个，但是我们这样做的原因是，我们在灰度版本上执行所有的处理，然后在彩色图像上使用相同的标签来标记。
+
+对于主要图像，我们只有彩色版本和灰度版本。 我们加载模板并记下尺寸。
+
+```py
+res = cv2.matchTemplate(img_gray,template,cv2.TM_CCOEFF_NORMED)
+threshold = 0.8
+loc = np.where( res >= threshold)
+```
+
+在这里，我们用`img_gray`（我们的主图像），模板，和我们要使用的匹配方法调用`matchTemplate`，并将返回值称为`res`。 我们指定一个阈值，这里是 80%。 然后我们使用逻辑语句，找到`res`大于或等于 80% 的位置。
+
+最后，我们使用灰度图像中找到的坐标，标记原始图像上的所有匹配：
+
+```py
+for pt in zip(*loc[::-1]):
+    cv2.rectangle(img_rgb, pt, (pt[0] + w, pt[1] + h), (0,255,255), 2)
+
+cv2.imshow('Detected',img_rgb)
+```
+
+![](https://pythonprogramming.net/static/images/opencv/opencv-python-template-matching-tutorial.jpg)
+
+所以我们得到了几个匹配。也许需要降低阈值？我们试试 0.7。
+
+![](https://pythonprogramming.net/static/images/opencv/opencv-template-matching.jpg)
+
+这里有一些假阳性。 你可以继续调整门槛，直到你达到 100%，但是如果没有假阳性，你可能永远不会达到它。 另一个选择就是使用另一个模板图像。 有时候，使用相同对象的多个图像是有用的。 这样，你可以使阈值足够高的，来确保你的结果准确。
+
+在下一个教程中，我们将介绍前景提取。
+
