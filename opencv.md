@@ -218,3 +218,172 @@ cv2.destroyAllWindows()
 太好了，现在我们知道如何操作图像和视频。 如果您没有网络摄像头，您可以使用图像甚至视频来跟随教程的其余部分。 如果您希望使用视频而不是网络摄像头作为源，则可以为视频指定文件路径，而不是摄像头号码。
 
 现在我们可以使用来源了，让我们来展示如何绘制东西。 此前您已经看到，您可以使用 Matplotlib 在图片顶部绘制，但是 Matplotlib 并不真正用于此目的，特别是不能用于视频源。 幸运的是，OpenCV 提供了一些很棒的工具，来帮助我们实时绘制和标记我们的源，这就是我们将在下一个教程中讨论的内容。
+
+## 三、在图像上绘制和写字
+
+在这个 Python OpenCV 教程中，我们将介绍如何在图像和视频上绘制各种形状。 想要以某种方式标记检测到的对象是相当普遍的，所以我们人类可以很容易地看到我们的程序是否按照我们的希望工作。 一个例子就是之前显示的图像之一：
+
+![](https://pythonprogramming.net/static/images/opencv/opencv-intro-tutorial-python.gif)
+
+对于这个临时的例子，我将使用下面的图片：
+
+![](https://pythonprogramming.net/static/images/opencv/watch.jpg)
+
+鼓励您使用自己的图片。 像往常一样，我们的起始代码可以是这样的：
+
+```py
+import numpy as np
+import cv2
+
+img = cv2.imread('watch.jpg',cv2.IMREAD_COLOR)
+```
+
+下面，我们可以开始绘制，这样：
+
+```py
+cv2.line(img,(0,0),(150,150),(255,255,255),15)
+
+cv2.imshow('image',img)
+cv2.waitKey(0)
+cv2.destroyAllWindows()
+```
+
+`cv2.line()`接受以下参数：图片，开始坐标，结束坐标，颜色（bgr），线条粗细。
+
+结果在这里：
+
+![](https://pythonprogramming.net/static/images/opencv/opencv-line-draw-tutorial.png)
+
+好吧，很酷，让我们绘制更多形状。 接下来是一个矩形：
+
+```py
+cv2.rectangle(img,(15,25),(200,150),(0,0,255),15)
+```
+
+这里的参数是图像，左上角坐标，右下角坐标，颜色和线条粗细。
+
+圆怎么样？
+
+```py
+cv2.circle(img,(100,63), 55, (0,255,0), -1)
+```
+
+这里的参数是图像/帧，圆心，半径，颜色和。 注意我们粗细为`-1`。 这意味着将填充对象，所以我们会得到一个圆。
+
+线条，矩形和圆都很酷，但是如果我们想要五边形，八边形或十八边形？ 没问题！
+
+```py
+pts = np.array([[10,5],[20,30],[70,20],[50,10]], np.int32)
+# OpenCV documentation had this code, which reshapes the array to a 1 x 2. I did not 
+# find this necessary, but you may:
+#pts = pts.reshape((-1,1,2))
+cv2.polylines(img, [pts], True, (0,255,255), 3)
+```
+
+首先，我们将坐标数组称为`pts`（点的简称）。 然后，我们使用`cv2.polylines`来画线。 参数如下：绘制的对象，坐标，我们应该连接终止的和起始点，颜色和粗细。
+
+你可能想要做的最后一件事是在图像上写字。 这可以这样做：
+
+```py
+font = cv2.FONT_HERSHEY_SIMPLEX
+cv2.putText(img,'OpenCV Tuts!',(0,130), font, 1, (200,255,155), 2, cv2.LINE_AA)
+```
+
+目前为止的完整代码：
+
+```py
+import numpy as np
+import cv2
+
+img = cv2.imread('watch.jpg',cv2.IMREAD_COLOR)
+cv2.line(img,(0,0),(200,300),(255,255,255),50)
+cv2.rectangle(img,(500,250),(1000,500),(0,0,255),15)
+cv2.circle(img,(447,63), 63, (0,255,0), -1)
+pts = np.array([[100,50],[200,300],[700,200],[500,100]], np.int32)
+pts = pts.reshape((-1,1,2))
+cv2.polylines(img, [pts], True, (0,255,255), 3)
+font = cv2.FONT_HERSHEY_SIMPLEX
+cv2.putText(img,'OpenCV Tuts!',(10,500), font, 6, (200,255,155), 13, cv2.LINE_AA)
+cv2.imshow('image',img)
+cv2.waitKey(0)
+cv2.destroyAllWindows()
+```
+
+结果：
+
+![](https://pythonprogramming.net/static/images/opencv/opencv-python-drawing-on-image-tutorial.png)
+
+在下一个教程中，我们将介绍我们可以执行的基本图像操作。
+
+## 四、图像操作
+
+在 OpenCV 教程中，我们将介绍一些我们可以做的简单图像操作。 每个视频分解成帧。 然后每一帧，就像一个图像，分解成存储在行和列中的，帧/图片中的像素。 每个像素都有一个坐标位置，每个像素都由颜色值组成。 让我们列举访问不同的位的一些例子。
+
+我们将像往常一样读取图像（如果可以，请使用自己的图像，但这里是我在这里使用的图像）：
+
+![](https://pythonprogramming.net/static/images/opencv/watch.jpg)
+
+```py
+import cv2
+import numpy as np
+
+img = cv2.imread('watch.jpg',cv2.IMREAD_COLOR)
+```
+
+现在我们可以实际引用特定像素，像这样：
+
+```py
+px = img[55,55]
+```
+
+下面我们可以实际修改像素：
+
+```py
+img[55,55] = [255,255,255]
+```
+
+之后重新引用：
+
+```py
+px = img[55,55]
+print(px)
+```
+
+现在应该不同了，下面我们可以引用 ROI，图像区域：
+
+```py
+px = img[100:150,100:150]
+print(px)
+```
+
+我们也可以修改 ROI，像这样：
+
+```py
+img[100:150,100:150] = [255,255,255]
+```
+
+我们可以引用我们的图像的特定特征：
+
+```py
+print(img.shape)
+print(img.size)
+print(img.dtype)
+```
+
+我们可以像这样执行操作：
+
+```py
+watch_face = img[37:111,107:194]
+img[0:74,0:87] = watch_face
+
+cv2.imshow('image',img)
+cv2.waitKey(0)
+cv2.destroyAllWindows()
+```
+
+这会处理我的图像，但是可能不能用于你的图像，取决于尺寸。这是我的输出：
+
+![](https://pythonprogramming.net/static/images/opencv/opencv-python-image-oeprations-tutorial.png)
+
+这些是一些简单的操作。 在下一个教程中，我们将介绍一些我们可以执行的更高级的图像操作。
+
