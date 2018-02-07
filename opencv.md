@@ -934,3 +934,53 @@ cv2.imshow('Detected',img_rgb)
 
 在下一个教程中，我们将介绍前景提取。
 
+## 十二、GrabCut 前景提取
+
+欢迎阅读 Python OpenCV 前景提取教程。 这里的想法是找到前景，并删除背景。 这很像绿屏，只是这里我们实际上不需要绿屏。
+
+首先，我们将使用一个图像：
+
+![](https://pythonprogramming.net/static/images/opencv/opencv-python-foreground-extraction-tutorial.jpg)
+
+随意使用你自己的。
+
+让我们加载图像并定义一些东西：
+
+
+```py
+import numpy as np
+import cv2
+from matplotlib import pyplot as plt
+
+img = cv2.imread('opencv-python-foreground-extraction-tutorial.jpg')
+mask = np.zeros(img.shape[:2],np.uint8)
+
+bgdModel = np.zeros((1,65),np.float64)
+fgdModel = np.zeros((1,65),np.float64)
+
+rect = (161,79,150,150)
+```
+
+到目前为止，我们已经导入了`cv2`，`numpy`和`matplotlib`。 然后我们加载图像，创建一个掩码，指定算法内部使用的背景和前景模型。 真正重要的部分是我们定义的矩形。 这是`rect = (start_x, start_y, width, height)`。
+
+这是包围我们的主要对象的矩形。 如果你正在使用我的图片，那就是要使用的矩阵。 如果你使用自己的，找到适合你的图像的坐标。
+
+下面：
+
+```py
+cv2.grabCut(img,mask,rect,bgdModel,fgdModel,5,cv2.GC_INIT_WITH_RECT)
+mask2 = np.where((mask==2)|(mask==0),0,1).astype('uint8')
+img = img*mask2[:,:,np.newaxis]
+
+plt.imshow(img)
+plt.colorbar()
+plt.show()
+```
+
+所以在这里我们使用了`cv2.grabCut`，它用了很多参数。 首先是输入图像，然后是掩码，然后是主要对象的矩形，背景模型，前景模型，要运行的迭代量以及使用的模式。
+
+这里改变了掩码，使得所有像素 0 和 2 转换为背景，而像素 1 和 3 现在是前景。 从这里，我们乘以输入图像，得到我们的最终结果：
+
+![](https://pythonprogramming.net/static/images/opencv/opencv-foreground-extraction-tutorial.png)
+
+下个教程中，我们打算讨论如何执行角点检测。
