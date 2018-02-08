@@ -1237,3 +1237,292 @@ cv2.destroyAllWindows()
 不错。你可能会注意到我不得不取下我的眼镜。这些造成了一些麻烦。我的嘴也经常被检测为眼睛，有时甚至是一张脸，但你明白了。面部毛发和其他东西经常可以欺骗基本面部检测，除此之外，皮肤的颜色也会造成很大的麻烦，因为我们经常试图尽可能简化图像，从而失去了很多颜色值。甚至还有一个小型行业，可以避免人脸检测和识别。[CVDazzle](https://cvdazzle.com/) 网站就是一个例子。其中有些非常古怪，但他们很有效。你也可以总是走完整的面部重建手术的路线，以避免自动跟踪和检测，所以总是这样，但是这更永久。做个发型比较短暂也容易做到。
 
 好吧，检测面部，眼睛和汽车是可以的，但我们是程序员。我们希望能够做任何事情。事实证明，事情会变得相当混乱，建立自己的 Haar Cascades 有一定的难度，但是其他人也这么做......你也可以！这就是在下一个教程中所讨论的。
+
+## 十七、创建自己的 Haar Cascade
+
+欢迎使用 Python OpenCV 对象检测教程。在本教程中，您将看到如何创建您自己的 Haar Cascades，以便您可以跟踪任何您想要的对象。由于这个任务的本质和复杂性，本教程将比平时稍长一些，但奖励是巨大的。
+
+虽然你**可以**在 Windows 中完成，我不会建议这样。因此，对于本教程，我将使用 Linux VPS，并且我建议您也这样做。您可以尝试使用 Amazon Web Services 提供的免费套餐，但对您来说可能太痛苦了，您可能需要更多的内存。您还可以从 Digital Ocean 获得低至五美元/月的 VPS。我推荐至少 2GB 的内存用于我们将要做的事情。现在大多数主机按小时收费，包括 DO。因此，你可以购买一个 20 美元/月的服务器，使用它一天，获取你想要的文件，然后终止服务器，并支付很少的钱。你需要更多的帮助来设置服务器？如果是的话，看看这个具体的教程。
+
+一旦你的服务器准备就绪，你会打算获取实际的 OpenCV 库。
+
+将目录更改到服务器的根目录，或者你想放置工作区的地方：
+
+```py
+cd ~
+
+sudo apt-get update
+
+sudo apt-get upgrade
+```
+
+首先，让我们为自己制作一个漂亮的工作目录：
+
+
+```py
+mkdir opencv_workspace
+
+cd opencv_workspace
+```
+
+既然我们完成了，让我们获取 OpenCV。
+
+```py
+sudo apt-get install git
+
+git clone https://github.com/Itseez/opencv.git
+```
+
+我们这里克隆了 OpenCV 的最新版本。现在获取一些必需品。
+
+编译器：`sudo apt-get install build-essential`
+
+库：`sudo apt-get install cmake git libgtk2.0-dev pkg-config libavcodec-dev libavformat-dev libswscale-dev`
+
+Python 绑定：`sudo apt-get install python-dev python-numpy libtbb2 libtbb-dev libjpeg-dev libpng-dev libtiff-dev libjasper-dev libdc1394-22-dev`
+
+最后，让我们获取 OpenCV 开发库：
+
+```py
+sudo apt-get install libopencv-dev
+```
+
+现在，我们该如何完成这个过程呢？所以当你想建立一个 Haar Cascade 时，你需要“正片”图像和“底片”图像。 “正片”图像是包含要查找的对象的图像。这可以是具有对象的主要图像，也可以是包含对象的图像，并指定对象所在的 ROI（兴趣区域）。有了这些正片图像，我们建立一个矢量文件，基本上是所有这些东西放在一起。正片图像的一个好处是，你可以实际只有一个你想要检测的对象的图像，然后有几千个底片图像。是的，几千。底片图像可以是任何东西，除了他们不能包含你的对象。
+
+在这里，使用你的底片图像，你可以使用`opencv_createsamples`命令来创建一堆正片的示例。你的正片图像将叠加在这些底片上，而且会形成各种各样的角度。它实际上可以工作得很好，特别是如果你只是在寻找一个特定的对象。但是，如果您正在寻找所有螺丝刀，则需要拥有数千个螺丝刀的独特图像，而不是使用`opencv_createsamples`为您生成样品。我们将保持简单，只使用一个正片图像，然后用我们的底片创建一堆样本。
+
+我们的正片图像：
+
+![](https://pythonprogramming.net/static/images/opencv/watch5050.jpg)
+
+这是另外一个场景，如果你使用自己的图像，你可能会更喜欢这个。如果事情出错了，试试看我的，但是我建议你自己画一下。保持较小。 `50x50`像素应该可以。
+
+好吧，获得正片图像是没有问题的！只有一个问题。我们需要成千上万的底片图像。可能在未来，我们也可能需要成千上万的正片图像。我们可以在世界的哪个地方实现它？基于 WordNet 的概念，有一个非常有用的站点叫做 ImageNet。从这里，你可以找到几乎任何东西的图像。我们这里，我们想要手表，所以搜索手表，你会发现大量种类的手表。让我们检索电子表。真棒！看看下载标签！存在用于所有电子表手表的 URL！很酷。好吧，但我说过我们只会使用一个正片，所以我们只是检测一个手表。如果你想检测“全部”手表，需要准备获取多余 50,000 个手表图像，至少 25000 个“底片”的图像。之后，准备足够的服务器，除非你想要你的 Haar Cascade 训练花一个星期。那么我们如何得到底片？ ImageNet 的全部重点是图像训练，所以他们的图像非常具体。因此，如果我们搜索人，汽车，船只，飞机......无论什么，都不会有手表。你可能会看到一些人或类似的东西，但你明白了。既然你可能看到人周围或上面的手表，我其实认为你也会得到人的图像。我的想法是寻找做运动的人，他们可能没有戴电子表。所以，我们来找一些批量图片的 URL 链接。我发现体育/田径链接有 1,888 张图片，但你会发现很多这些都是完全损坏的。让我们再来找一个：
+
+好吧，我们拥有所有这些图片，现在呢？那么，首先，我们希望所有这些大小都相同，而且要小很多！天哪，只要我们知道一个方法来操作图像...嗯...哦，这是一个 OpenCV 教程！我们可以处理它。所以，首先，我们要做的就是编写一个简单的脚本，访问这些 URL 列表，获取链接，访问链接，拉取图像，调整大小，保存它们，然后重复，直到完成。当我们的目录充满图像时，我们还需要一种描述图像的描述文件。对于正片，手动创建这个文件特别痛苦，因为你需要指定你的对象，每个图像的具体的兴趣区域。幸运的是，`create_samples`方法将图像随机放置，并为我们做了所有工作。我们只需要一个用于底片的简单描述符，但是这不是问题，在拉伸和操作图像时我们可以实现。
+
+<https://www.youtube.com/embed/z_6fPS5tDNU?list=PLQVvvaa0QuDdttJXlLtAJxJetJcqmqlQq>
+
+在任何你喜欢的地方随意运行这个代码。 我要在我的主机上运行它，因为它应该快一点。 你可以在你的服务器上运行。 如果你想使用`cv2`模块，请执行`sudo apt-get install python-OpenCV`。 目前，我不知道在 Linux 上为 Python 3 获得这些绑定的好方法。 我将要写的脚本是 Python 3，所以记住这一点。 主要区别是`Urllib`处理。
+
+```py
+# download-image-by-link.py
+
+import urllib.request
+import cv2
+import numpy as np
+import os
+
+def store_raw_images():
+    neg_images_link = '//image-net.org/api/text/imagenet.synset.geturls?wnid=n00523513'   
+    neg_image_urls = urllib.request.urlopen(neg_images_link).read().decode()
+    pic_num = 1
+    
+    if not os.path.exists('neg'):
+        os.makedirs('neg')
+        
+    for i in neg_image_urls.split('\n'):
+        try:
+            print(i)
+            urllib.request.urlretrieve(i, "neg/"+str(pic_num)+".jpg")
+            img = cv2.imread("neg/"+str(pic_num)+".jpg",cv2.IMREAD_GRAYSCALE)
+            # should be larger than samples / pos pic (so we can place our image on it)
+            resized_image = cv2.resize(img, (100, 100))
+            cv2.imwrite("neg/"+str(pic_num)+".jpg",resized_image)
+            pic_num += 1
+            
+        except Exception as e:
+            print(str(e))  
+```
+
+很简单，这个脚本将访问链接，抓取网址，并继续访问它们。从这里，我们抓取图像，转换成灰度，调整大小，然后保存。我们使用一个简单的计数器来命名图像。继续运行它。你可能看到，有很多确实的图片等。没关系。这些错误图片中的一些更有问题。基本上都是白色，带有一些文本，说他们不再可用，而不是服务和 HTTP 错误。现在，我们有几个选择。我们可以忽略它们，或者修复它。嘿，这是一个没有手表的图像，所以什么是对的呢？当然，你可以采取这种观点，但如果你为正片使用这种拉取方式的话，这肯定是一个问题。你可以手动删除它们...或者我们可以使用我们新的图像分析知识，来检测这些愚蠢的图像，并将其删除！
+
+我继续生成了一个新的目录，称之为“`uglies`（丑陋）”。在那个目录中，我点击并拖动了所有丑陋的图像版本（只是其中之一）。在底片中我只发现了一个主犯，所以我只有一个。让我们编写一个脚本来查找这个图像的所有实例并删除它。
+
+<https://www.youtube.com/embed/t0HOVLK30xQ?list=PLQVvvaa0QuDdttJXlLtAJxJetJcqmqlQq>
+
+```py
+def find_uglies():
+    match = False
+    for file_type in ['neg']:
+        for img in os.listdir(file_type):
+            for ugly in os.listdir('uglies'):
+                try:
+                    current_image_path = str(file_type)+'/'+str(img)
+                    ugly = cv2.imread('uglies/'+str(ugly))
+                    question = cv2.imread(current_image_path)
+                    if ugly.shape == question.shape and not(np.bitwise_xor(ugly,question).any()):
+                        print('That is one ugly pic! Deleting!')
+                        print(current_image_path)
+                        os.remove(current_image_path)
+                except Exception as e:
+                    print(str(e))
+```
+
+现在我们只有底片，但是我留下了空间让你轻易在那里添加`'pos'`（正片）。 你可以运行它来测试，但我不介意先抓住更多的底片。 让我们再次运行图片提取器，仅仅使用这个 url：`//image-net.org/api/text/imagenet.synset.geturls?wnid=n07942152`。 最后一张图像是`#952`，所以让我们以 953  开始`pic_num`，并更改网址。
+
+```py
+def store_raw_images():
+    neg_images_link = '//image-net.org/api/text/imagenet.synset.geturls?wnid=n07942152'   
+    neg_image_urls = urllib.request.urlopen(neg_images_link).read().decode()
+    pic_num = 953
+    
+    if not os.path.exists('neg'):
+        os.makedirs('neg')
+        
+    for i in neg_image_urls.split('\n'):
+        try:
+            print(i)
+            urllib.request.urlretrieve(i, "neg/"+str(pic_num)+".jpg")
+            img = cv2.imread("neg/"+str(pic_num)+".jpg",cv2.IMREAD_GRAYSCALE)
+            # should be larger than samples / pos pic (so we can place our image on it)
+            resized_image = cv2.resize(img, (100, 100))
+            cv2.imwrite("neg/"+str(pic_num)+".jpg",resized_image)
+            pic_num += 1
+            
+        except Exception as e:
+            print(str(e)) 
+```
+
+现在我们有超过2000张照片。 最后一步是，我们需要为这些底片图像创建描述符文件。 我们将再次使用一些代码！
+
+```py
+def create_pos_n_neg():
+    for file_type in ['neg']:
+        
+        for img in os.listdir(file_type):
+
+            if file_type == 'pos':
+                line = file_type+'/'+img+' 1 0 0 50 50\n'
+                with open('info.dat','a') as f:
+                    f.write(line)
+            elif file_type == 'neg':
+                line = file_type+'/'+img+'\n'
+                with open('bg.txt','a') as f:
+                    f.write(line)
+```
+
+运行它，你有了个`bg.txt`文件。 现在，我知道有些人的互联网连接可能不是最好的，所以我做个好人，在这里上传底片图片和描述文件。 你应该通过这些步骤。 如果您对本教程感到困扰，则需要知道如何执行这部分。 好吧，所以我们决定我们将一个图像用于正片前景图像。 因此，我们需要执行`create_samples`。 这意味着，我们需要将我们的`neg`目录和`bg.txt`文件移动到我们的服务器。 如果你在服务器上运行所有这些代码，不要担心。
+
+<https://www.youtube.com/embed/eay7CgPlCyo?list=PLQVvvaa0QuDdttJXlLtAJxJetJcqmqlQq>
+
+如果你是一个术士，并已经想出了如何在 Windows 上运行`create_samples`等，恭喜！ 回到服务器的领地，我的文件现在是这样的：
+
+```
+opencv_workspace
+--neg
+----negimages.jpg
+--opencv
+--info
+--bg.txt
+--watch5050.jpg
+```
+
+你可能没有`info`目录，所以继续并`mkdir info`。 这是我们放置所有正片图像的地方。
+
+我们现在准备根据`watch5050.jpg`图像创建一些正片样本。 为此，请在工作区中通过终端运行以下命令：
+
+```
+opencv_createsamples -img watch5050.jpg -bg bg.txt -info info/info.lst -pngoutput info -maxxangle 0.5 -maxyangle 0.5 -maxzangle 0.5 -num 1950
+
+```
+
+这样做是基于我们指定的`img`创建样本，`bg`是背景信息，我们将输出`info.list`（很像`bg.txt`文件）的信息，然后`-pngoutput就`是我们想要放置新生成的图像的任何地方。 最后，我们有一些可选的参数，使我们的原始图像更加动态一些，然后用`= num`来表示我们想要创建的样本数量。 太棒了，让我们来运行它。 现在你的`info`目录应该有约 2,000 个图像，还有一个名为`info.lst`的文件。 这个文件基本上是你的“正片”文件。 打开它，并且看看它怎么样：
+
+```
+0001_0014_0045_0028_0028.jpg 1 14 45 28 28
+```
+
+首先你有文件名，之后是图像中有多少对象，其次是它们的所有位置。 我们只有一个，所以它是图像中对象矩形的`x`，`y`，宽度和高度。 这是一个图像：
+
+![](https://pythonprogramming.net/static/images/opencv/opencv_create_samples_example_tutorial.jpg)
+
+很难看到它，但如果你很难看到，手表就是这个图像。 图像中最左侧人物的左下方。 因此，这是一个“正片”图像，从另外一个“底片”图像创建，底片图像也将用于训练。 现在我们有了正片图像，现在我们需要创建矢量文件，这基本上是一个地方，我们将所有正片图像拼接起来。我们会再次为此使用`opencv_createsamples`！
+
+```
+opencv_createsamples -info info/info.lst -num 1950 -w 20 -h 20 -vec positives.vec
+```
+
+这是我们的矢量文件。 在这里，我们只是让它知道信息文件的位置，我们想要在文件中包含多少图像，在这个矢量文件中图像应该是什么尺寸，然后才能输出结果。 如果你愿意的话，你可以做得更大一些，`20×20`可能足够好了，你做的越大，训练时间就会越长。 继续，我们现在只需要训练我们的层叠。
+
+首先，我们要把输出放在某个地方，所以让我们创建一个新的数据目录：
+
+`mkdir data`，您的工作空间应该如下所示：
+
+```
+opencv_workspace
+--neg
+----negimages.jpg
+--opencv
+--info
+--data
+--positives.vec --bg.txt
+--watch5050.jpg
+```
+
+现在让我们运行训练命令：
+
+```py
+opencv_traincascade -data data -vec positives.vec -bg bg.txt -numPos 1800 -numNeg 900 -numStages 10 -w 20 -h 20
+```
+
+在这里，我们表明了，我们想要数据去的地方，矢量文件的位置，背景文件的位置，要使用多少个正片图像和底片图像，多少个阶段以及宽度和高度。请注意，我们使用的`numPos`比我们少得多。这是为了给阶段腾出空间。
+
+有更多的选择，但这些就够了。这里主要是正片和底片的数量。一般认为，对于大多数实践，你需要 2:1 比例的正片和底片图像。有些情况可能会有所不同，但这是人们似乎遵循的一般规则。接下来，我们拥有阶段。我们选择了 10 个。你至少要 10-20 个，越多需要的时间越长，而且是指数级的。第一阶段通常很快，第五阶段要慢得多，第五十个阶段是永远不会做完！所以，我们现在执行 10 个阶段。这里整洁的事情是你可以训练 10 个阶段，稍后再回来，把数字改成 20，然后在你离开的地方继续。同样的，你也可以放一些像 100 个阶段的东西，上床睡觉，早上醒来，停下来，看看你有多远，然后用这些阶段“训练”，你会立即得到一个层叠文件。你可能从最后一句话中得出，这个命令的结果确实很棒，是个不错的层叠文件。我们希望能检测到我的手表，或者你决定检测的任何东西。我所知道的是，在输出这一段的时候，我还没有完成第一阶段的工作。如果你真的想要在一夜之间运行命令，但不想让终端打开，你可以使用`nohup`：
+
+```py
+nohup opencv_traincascade -data data -vec positives.vec -bg bg.txt -numPos 1800 -numNeg 900 -numStages 10 -w 20 -h 20 &
+```
+
+这使命令即使在关闭终端之后也能继续运行。 你可以使用更多，但你可能会或可能不会用完你的 2GB RAM。
+
+<https://www.youtube.com/embed/-Mhy-5YNcG4?list=PLQVvvaa0QuDdttJXlLtAJxJetJcqmqlQq>
+
+在我的 2GB DO 服务器上，10 个阶段花了不到 2 个小时的时间。 所以，要么有一个`cascade.xml`文件，要么停止脚本运行。 如果你停止运行，你应该在你的`data`目录下有一堆`stageX.xml`文件。 打开它，看看你有多少个阶段，然后你可以使用这些阶段，再次运行`opencv_traincascade`，你会立即得到一个`cascade.xml`文件。 这里，我只想说出它是什么，以及有多少个阶段。 对我来说，我做了 10 个阶段，所以我将它重命名为`watchcascade10stage.xml`。 这就是我们所需的，所以现在将新的层次文件传回主计算机，放在工作目录中，让我们试试看！
+
+```py
+import numpy as np
+import cv2
+
+face_cascade = cv2.CascadeClassifier('haarcascade_frontalface_default.xml')
+eye_cascade = cv2.CascadeClassifier('haarcascade_eye.xml')
+
+#this is the cascade we just made. Call what you want
+watch_cascade = cv2.CascadeClassifier('watchcascade10stage.xml')
+
+cap = cv2.VideoCapture(0)
+
+while 1:
+    ret, img = cap.read()
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    faces = face_cascade.detectMultiScale(gray, 1.3, 5)
+    
+    # add this
+    # image, reject levels level weights.
+    watches = watch_cascade.detectMultiScale(gray, 50, 50)
+    
+    # add this
+    for (x,y,w,h) in watches:
+        cv2.rectangle(img,(x,y),(x+w,y+h),(255,255,0),2)
+
+    for (x,y,w,h) in faces:
+        cv2.rectangle(img,(x,y),(x+w,y+h),(255,0,0),2)
+
+        
+        roi_gray = gray[y:y+h, x:x+w]
+        roi_color = img[y:y+h, x:x+w]
+        eyes = eye_cascade.detectMultiScale(roi_gray)
+        for (ex,ey,ew,eh) in eyes:
+            cv2.rectangle(roi_color,(ex,ey),(ex+ew,ey+eh),(0,255,0),2)
+
+    cv2.imshow('img',img)
+    k = cv2.waitKey(30) & 0xff
+    if k == 27:
+        break
+
+cap.release()
+cv2.destroyAllWindows()
+```
+
+![](https://pythonprogramming.net/static/images/opencv/opencv-train-cascade-object-detection.png)
+
