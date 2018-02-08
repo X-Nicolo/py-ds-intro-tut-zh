@@ -984,3 +984,150 @@ plt.show()
 ![](https://pythonprogramming.net/static/images/opencv/opencv-foreground-extraction-tutorial.png)
 
 下个教程中，我们打算讨论如何执行角点检测。
+
+## 十三、角点检测
+
+欢迎阅读 Python OpenCV 角点检测教程。 检测角点的目的是追踪运动，做 3D 建模，识别物体，形状和角色等。
+
+对于本教程，我们将使用以下图像：
+
+![](https://pythonprogramming.net/static/images/opencv/opencv-corner-detection-sample.jpg)
+
+我们的目标是找到这个图像中的所有角点。 我会注意到，在这里我们有一些别名问题（斜线的锯齿），所以，如果我们允许的话，会发现很多角点，而且是正确的。 和往常一样，OpenCV 已经为我们完成了难题，我们需要做的就是输入一些参数。 让我们开始加载图像并设置一些参数：
+
+```py
+import numpy as np
+import cv2
+
+img = cv2.imread('opencv-corner-detection-sample.jpg')
+gray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
+gray = np.float32(gray)
+
+corners = cv2.goodFeaturesToTrack(gray, 100, 0.01, 10)
+corners = np.int0(corners)
+```
+
+到目前为止，我们加载图像，转换为灰度，然后是`float32`。 接下来，我们用`goodFeaturesToTrack`函数检测角点。 这里的参数是图像，检测到的最大角点数量，品质和角点之间的最小距离。 如前所述，我们在这里的锯齿问题将允许找到许多角点，所以我们对其进行了限制。 下面：
+
+```py
+for corner in corners:
+    x,y = corner.ravel()
+    cv2.circle(img,(x,y),3,255,-1)
+    
+cv2.imshow('Corner',img)
+```
+
+现在我们遍历每个角点，在我们认为是角点的每个点上画一个圆。
+
+![](https://pythonprogramming.net/static/images/opencv/opencv-python-corner-detection-tutorial.png)
+
+在下一个教程中，我们将讨论功能匹配/单映射。
+
+## 十四、特征匹配（单映射）爆破
+
+欢迎阅读 Python OpenCV 特征匹配教程。 特征匹配将是稍微更令人印象深刻的模板匹配版本，其中需要一个完美的，或非常接近完美的匹配。
+
+我们从我们希望找到的图像开始，然后我们可以在另一幅图像中搜索这个图像。 这里的完美是图像不需要相同的光照，角度，旋转等。 特征只需要匹配。
+
+首先，我们需要一些示例图像。 我们的“模板”，或者我们将要尝试匹配的图像：
+
+![](https://pythonprogramming.net/static/images/opencv/opencv-feature-matching-template.jpg)
+
+之后是我们用于搜索这个模板的图像：
+
+![](https://pythonprogramming.net/static/images/opencv/opencv-feature-matching-image.jpg)
+
+在这里，我们的模板图像在模板中，比在我们要搜索的图像中要小一些。 它的旋转也不同，阴影也有些不同。
+
+现在我们将使用一种“爆破”匹配的形式。 我们将在这两个图像中找到所有特征。 然后我们匹配这些特征。 然后，我们可以绘制我们想要的，尽可能多的匹配。 但是要小心。 如果你绘制 500 个匹配，你会有很多误报。 所以只绘制绘制前几个。
+
+```py
+import numpy as np
+import cv2
+import matplotlib.pyplot as plt
+
+img1 = cv2.imread('opencv-feature-matching-template.jpg',0)
+img2 = cv2.imread('opencv-feature-matching-image.jpg',0)
+```
+
+到目前为止，我们已经导入了要使用的模块，并定义了我们的两个图像，即模板（`img1`）和用于搜索模板的图像（`img2`）。
+
+```py
+orb = cv2.ORB_create()
+```
+
+这是我们打算用于特征的检测器。
+
+```py
+kp1, des1 = orb.detectAndCompute(img1,None)
+kp2, des2 = orb.detectAndCompute(img2,None)
+```
+
+在这里，我们使用`orb`探测器找到关键点和他们的描述符。
+
+```py
+bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
+```
+
+这就是我们的`BFMatcher`对象。
+
+```py
+matches = bf.match(des1,des2)
+matches = sorted(matches, key = lambda x:x.distance)
+```
+
+这里我们创建描述符的匹配，然后根据它们的距离对它们排序。
+
+```py
+img3 = cv2.drawMatches(img1,kp1,img2,kp2,matches[:10],None, flags=2)
+plt.imshow(img3)
+plt.show()
+```
+
+这里我们绘制了前 10 个匹配。输出：
+
+![](https://pythonprogramming.net/static/images/opencv/opencv-python-feature-matching-tutorial.png)
+
+## 十五、MOG 背景减弱
+
+在这个 Python OpenCV 教程中，我们将要讨论如何通过检测运动来减弱图像的背景。 这将要求我们回顾视频的使用，或者有两个图像，一个没有你想要追踪的人物/物体，另一个拥有人物/物体。 如果你希望，你可以使用你的摄像头，或者使用如下的视频：
+
+[人们行走的样例视频](https://pythonprogramming.net/static/images/opencv/people-walking.mp4)
+
+这里的代码实际上很简单，就是我们现在知道的：
+
+```py
+import numpy as np
+import cv2
+
+cap = cv2.VideoCapture('people-walking.mp4')
+fgbg = cv2.createBackgroundSubtractorMOG2()
+
+while(1):
+    ret, frame = cap.read()
+
+    fgmask = fgbg.apply(frame)
+ 
+    cv2.imshow('fgmask',frame)
+    cv2.imshow('frame',fgmask)
+
+    
+    k = cv2.waitKey(30) & 0xff
+    if k == 27:
+        break
+    
+
+cap.release()
+cv2.destroyAllWindows()
+```
+
+结果：
+
+<https://pythonprogramming.net/static/images/opencv/opencv-python-foreground.mp4>
+
+这里的想法是从静态背景中提取移动的前景。 您也可以使用这个来比较两个相似的图像，并立即提取它们之间的差异。
+
+在我们的例子中，我们可以看到我们确实已经检测到了一些人，但是我们确实有一些“噪音”，噪音实际上是树叶在周围的风中移动了一下。 只要我们知道一种减少噪音的方法。 等一下！ 我们的确知道！ 一个疯狂的挑战已经出现了你面前！
+
+接下来的教程开始让我们远离滤镜或变换的应用，并让我们使用 Haar Cascades 来检测一般对象，例如面部检测等等。
+
