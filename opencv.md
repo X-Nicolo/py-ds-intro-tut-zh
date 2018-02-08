@@ -1131,3 +1131,109 @@ cv2.destroyAllWindows()
 
 接下来的教程开始让我们远离滤镜或变换的应用，并让我们使用 Haar Cascades 来检测一般对象，例如面部检测等等。
 
+## 十六、Haar Cascade 面部检测
+
+在这个 Python OpenCV 教程中，我们将讨论 Haar Cascades 对象检测。我们将从脸部和眼睛检测来开始。为了使用层叠文件进行对象识别/检测，首先需要层叠文件。对于非常流行的任务，这些已经存在。检测脸部，汽车，笑脸，眼睛和车牌等东西都是非常普遍的。
+
+首先，我会告诉你如何使用这些层叠文件，然后我将告诉你如何开始创建你自己的层叠，这样你就可以检测到任何你想要的对象，这很酷！
+
+您可以使用 Google 来查找您可能想要检测的东西的各种 Haar Cascades。对于找到上述类型，你应该没有太多的麻烦。我们将使用[面部层叠](https://github.com/Itseez/opencv/blob/master/data/haarcascades/haarcascade_frontalface_default.xml)和[眼睛层叠](https://github.com/Itseez/opencv/blob/master/data/haarcascades/haarcascade_eye.xml)。你可以在 Haar Cascades 的根目录找到更多。请注意用于使用/分发这些 Haar Cascades 的许可证。
+
+让我们开始我们的代码。我假设你已经从上面的链接中下载了`haarcascade_eye.xml`和`haarcascade_frontalface_default.xml`，并将这些文件放在你项目的目录中。
+
+```py
+import numpy as np
+import cv2
+
+# multiple cascades: https://github.com/Itseez/opencv/tree/master/data/haarcascades
+
+#https://github.com/Itseez/opencv/blob/master/data/haarcascades/haarcascade_frontalface_default.xml
+face_cascade = cv2.CascadeClassifier('haarcascade_frontalface_default.xml')
+#https://github.com/Itseez/opencv/blob/master/data/haarcascades/haarcascade_eye.xml
+eye_cascade = cv2.CascadeClassifier('haarcascade_eye.xml')
+
+cap = cv2.VideoCapture(0)
+```
+
+在这里，我们从导入`cv2`和`numpy`开始，然后加载我们的脸部和眼部的层叠。 目前为止很简单。
+
+```py
+while 1:
+    ret, img = cap.read()
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    faces = face_cascade.detectMultiScale(gray, 1.3, 5)
+```
+
+现在我们开始我们的典型循环，这里唯一的新事物就是脸部的创建。 更多信息请访问[`detectMultiScale`函数的文档](https://docs.opencv.org/2.4/modules/objdetect/doc/cascade_classification.html#cascadeclassifier-detectmultiscale)。 基本上，它找到了面部！ 我们也想找到眼睛，但是在一个假阳性的世界里，在面部里面寻找眼睛，从逻辑上来说是不是很明智？ 我们希望我们不寻找不在脸上的眼睛！ 严格来说，“眼睛检测”可能不会找到闲置的眼球。 大多数眼睛检测使用周围的皮肤，眼睑，眼睫毛，眉毛也可以用于检测。 因此，我们的下一步就是先去拆分面部，然后才能到达眼睛：
+
+```py
+    for (x,y,w,h) in faces:
+        cv2.rectangle(img,(x,y),(x+w,y+h),(255,0,0),2)
+        roi_gray = gray[y:y+h, x:x+w]
+        roi_color = img[y:y+h, x:x+w]
+```
+
+在这里，我们找到了面部，它们的大小，绘制矩形，并注意 ROI。 接下来，我们找了一些眼睛：
+
+```py
+        eyes = eye_cascade.detectMultiScale(roi_gray)
+        for (ex,ey,ew,eh) in eyes:
+            cv2.rectangle(roi_color,(ex,ey),(ex+ew,ey+eh),(0,255,0),2)
+```
+
+如果我们找到这些，我们会继续绘制更多的矩形。 接下来我们完成：
+
+```py
+    cv2.imshow('img',img)
+    k = cv2.waitKey(30) & 0xff
+    if k == 27:
+        break
+
+cap.release()
+cv2.destroyAllWindows()
+```
+
+完整代码：
+
+```py
+import numpy as np
+import cv2
+
+# multiple cascades: https://github.com/Itseez/opencv/tree/master/data/haarcascades
+
+#https://github.com/Itseez/opencv/blob/master/data/haarcascades/haarcascade_frontalface_default.xml
+face_cascade = cv2.CascadeClassifier('haarcascade_frontalface_default.xml')
+#https://github.com/Itseez/opencv/blob/master/data/haarcascades/haarcascade_eye.xml
+eye_cascade = cv2.CascadeClassifier('haarcascade_eye.xml')
+
+cap = cv2.VideoCapture(0)
+
+while 1:
+    ret, img = cap.read()
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    faces = face_cascade.detectMultiScale(gray, 1.3, 5)
+
+    for (x,y,w,h) in faces:
+        cv2.rectangle(img,(x,y),(x+w,y+h),(255,0,0),2)
+        roi_gray = gray[y:y+h, x:x+w]
+        roi_color = img[y:y+h, x:x+w]
+        
+        eyes = eye_cascade.detectMultiScale(roi_gray)
+        for (ex,ey,ew,eh) in eyes:
+            cv2.rectangle(roi_color,(ex,ey),(ex+ew,ey+eh),(0,255,0),2)
+
+    cv2.imshow('img',img)
+    k = cv2.waitKey(30) & 0xff
+    if k == 27:
+        break
+
+cap.release()
+cv2.destroyAllWindows()
+```
+
+![](https://pythonprogramming.net/static/images/opencv/opencv-python-face-eye-detection-tutorial.png)
+
+
+不错。你可能会注意到我不得不取下我的眼镜。这些造成了一些麻烦。我的嘴也经常被检测为眼睛，有时甚至是一张脸，但你明白了。面部毛发和其他东西经常可以欺骗基本面部检测，除此之外，皮肤的颜色也会造成很大的麻烦，因为我们经常试图尽可能简化图像，从而失去了很多颜色值。甚至还有一个小型行业，可以避免人脸检测和识别。[CVDazzle](https://cvdazzle.com/) 网站就是一个例子。其中有些非常古怪，但他们很有效。你也可以总是走完整的面部重建手术的路线，以避免自动跟踪和检测，所以总是这样，但是这更永久。做个发型比较短暂也容易做到。
+
+好吧，检测面部，眼睛和汽车是可以的，但我们是程序员。我们希望能够做任何事情。事实证明，事情会变得相当混乱，建立自己的 Haar Cascades 有一定的难度，但是其他人也这么做......你也可以！这就是在下一个教程中所讨论的。
