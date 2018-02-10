@@ -1,8 +1,15 @@
 # TensorFlow 聊天机器人
 
+> 原文：[Creating a Chatbot with Deep Learning, Python, and TensorFlow](https://pythonprogramming.net/chatbot-deep-learning-python-tensorflow/)
+
+> 译者：[飞龙](https://github.com/)
+
+> 协议：[CC BY-NC-SA 4.0](http://creativecommons.org/licenses/by-nc-sa/4.0/)
+
+
 ## 一、使用深度学习创建聊天机器人
 
-您好，欢迎阅读 Python 聊天机器人系列教程。 在本系列中，我们将介绍如何使用 Python 和 TensorFlow 创建一个能用的聊天机器人。 以下是一些 chatbot 的实例：
+你好，欢迎阅读 Python 聊天机器人系列教程。 在本系列中，我们将介绍如何使用 Python 和 TensorFlow 创建一个能用的聊天机器人。 以下是一些 chatbot 的实例：
 
 > I use Google and it works.
 > 
@@ -20,9 +27,9 @@
 > 
 > — Charles the AI (@Charles_the_AI) November 24, 2017
 
-我的目标是创建一个聊天机器人，可以实时与 Twitch Stream 上的人交谈，而不是听起来像个白痴。为了创建一个聊天机器人，或者真的做任何机器学习任务，当然，您的第一个任务就是获取训练数据，之后您需要构建并准备，将其格式化为“输入”和“输出”形式，机器学习算法可以消化它。可以说，这就是做任何机器学习时的实际工作。建立模型和训练/测试步骤简单的部分！
+我的目标是创建一个聊天机器人，可以实时与 Twitch Stream 上的人交谈，而不是听起来像个白痴。为了创建一个聊天机器人，或者真的做任何机器学习任务，当然，你的第一个任务就是获取训练数据，之后你需要构建并准备，将其格式化为“输入”和“输出”形式，机器学习算法可以消化它。可以说，这就是做任何机器学习时的实际工作。建立模型和训练/测试步骤简单的部分！
 
-为了获得聊天训练数据，您可以查看相当多的资源。例如，[康奈尔电影对话语料库](https://www.cs.cornell.edu/~cristian/Cornell_Movie-Dialogs_Corpus.html)似乎是最受欢迎的语料之一。还有很多其他来源，但我想要的东西更加......原始。有些没有美化的东西，有一些带有为其准备的特征。自然，这把我带到了 Reddit。起初，我认为我会使用 Python Reddit API 包装器，但 Reddit 对抓取的限制并不是最友好的。为了收集大量的数据，你必须打破一些规则。相反，我发现了一个 [17 亿个 Reddit 评论的数据转储](https://www.reddit.com/r/datasets/comments/3bxlg7/i_have_every_publicly_available_reddit_comment/?st=j9udbxta&sh=69e4fee7)。那么，应该使用它！
+为了获得聊天训练数据，你可以查看相当多的资源。例如，[康奈尔电影对话语料库](https://www.cs.cornell.edu/~cristian/Cornell_Movie-Dialogs_Corpus.html)似乎是最受欢迎的语料之一。还有很多其他来源，但我想要的东西更加......原始。有些没有美化的东西，有一些带有为其准备的特征。自然，这把我带到了 Reddit。起初，我认为我会使用 Python Reddit API 包装器，但 Reddit 对抓取的限制并不是最友好的。为了收集大量的数据，你必须打破一些规则。相反，我发现了一个 [17 亿个 Reddit 评论的数据转储](https://www.reddit.com/r/datasets/comments/3bxlg7/i_have_every_publicly_available_reddit_comment/?st=j9udbxta&sh=69e4fee7)。那么，应该使用它！
 
 Reddit 的结构是树形的，不像论坛，一切都是线性的。父评论是线性的，但父评论的回复是个分支。以防有些人不熟悉：
 
@@ -53,13 +60,13 @@ magnet:?xt=urn:btih:7690f71ea949b868080401c749e878f98de34d3d&dn=reddit%5Fdata&tr
 
 我只下载过两次这个种子，但根据种子和对等的不同，下载速度可能会有很大差异。
 
-最后，您还可以通过 [Google BigQuery](https://www.reddit.com/r/bigquery/comments/3cej2b/17_billion_reddit_comments_loaded_on_bigquery/?st=j9xmvats&sh=5843d18e) 查看所有 Reddit 评论。 BigQuery 表似乎随着时间的推移而更新，而 torrent 不是，所以这也是一个不错的选择。 我个人将会使用 torrent，因为它是完全免费的，所以，如果你想完全遵循它，就需要这样做，但如果你愿意的话，可以随意改变主意，使用 Google BigQuery 的东西！
+最后，你还可以通过 [Google BigQuery](https://www.reddit.com/r/bigquery/comments/3cej2b/17_billion_reddit_comments_loaded_on_bigquery/?st=j9xmvats&sh=5843d18e) 查看所有 Reddit 评论。 BigQuery 表似乎随着时间的推移而更新，而 torrent 不是，所以这也是一个不错的选择。 我个人将会使用 torrent，因为它是完全免费的，所以，如果你想完全遵循它，就需要这样做，但如果你愿意的话，可以随意改变主意，使用 Google BigQuery 的东西！
 
-由于数据下载可能需要相当长的时间，我会在这里中断。 一旦你下载了数据，继续下一个教程。 您可以仅仅下载`2015-01`文件来跟随整个系列教程，您不需要整个 17 亿个评论转储。 一个月的就足够了。
+由于数据下载可能需要相当长的时间，我会在这里中断。 一旦你下载了数据，继续下一个教程。 你可以仅仅下载`2015-01`文件来跟随整个系列教程，你不需要整个 17 亿个评论转储。 一个月的就足够了。
 
 ## 二、聊天数据结构
 
-欢迎阅读 Python 和 TensorFlow 聊天机器人系列教程的第二部分。现在，我假设你已经下载了数据，或者你只是在这里观看。对于大多数机器学习，您需要获取数据，并且某些时候需要输入和输出。对于神经网络，这表示实际神经网络的输入层和输出层。对于聊天机器人来说，这意味着我们需要将东西拆成评论和回复。评论是输入，回复是所需的输出。现在使用 Reddit，并不是所有的评论都有回复，然后很多评论会有很多回复！我们需要挑一个。
+欢迎阅读 Python 和 TensorFlow 聊天机器人系列教程的第二部分。现在，我假设你已经下载了数据，或者你只是在这里观看。对于大多数机器学习，你需要获取数据，并且某些时候需要输入和输出。对于神经网络，这表示实际神经网络的输入层和输出层。对于聊天机器人来说，这意味着我们需要将东西拆成评论和回复。评论是输入，回复是所需的输出。现在使用 Reddit，并不是所有的评论都有回复，然后很多评论会有很多回复！我们需要挑一个。
 
 我们需要考虑的另一件事是，当我们遍历这个文件时，我们可能会发现一个回复，但随后我们可能会找到更好的回复。我们可以使用一种方法是看看得票最高的。我们可能也只想要得票最高的回应。我们可以考虑在这里很多事情，按照你的希望随意调整！
 
@@ -70,7 +77,7 @@ magnet:?xt=urn:btih:7690f71ea949b868080401c749e878f98de34d3d&dn=reddit%5Fdata&tr
 
 ```
 
-每一行就像上面那样。我们并不需要这些数据的全部，但是我们肯定需要`body`，`comment_id`和`parent_id`。如果您下载完整的 torrent 文件，或者正在使用 BigQuery 数据库，那么可以使用样例数据，所以我也将使用`score`。我们可以为分数设定限制。我们也可以处理特定的`subreddit`，来创建一个说话风格像特定 subreddit 的 AI。现在，我会处理所有 subreddit。
+每一行就像上面那样。我们并不需要这些数据的全部，但是我们肯定需要`body`，`comment_id`和`parent_id`。如果你下载完整的 torrent 文件，或者正在使用 BigQuery 数据库，那么可以使用样例数据，所以我也将使用`score`。我们可以为分数设定限制。我们也可以处理特定的`subreddit`，来创建一个说话风格像特定 subreddit 的 AI。现在，我会处理所有 subreddit。
 
 现在，即使一个月的评论也可能超过 32GB，我也无法将其纳入 RAM，我们需要通过数据进行缓冲。我的想法是继续并缓冲评论文件，然后将我们感兴趣的数据存储到 SQLite 数据库中。这里的想法是我们可以将评论数据插入到这个数据库中。所有评论将按时间顺序排列，所有评论最初都是“父节点”，自己并没有父节点。随着时间的推移，会有回复，然后我们可以存储这个“回复”，它将在数据库中有父节点，我们也可以按照 ID 拉取，然后我们可以检索一些行，其中我们拥有父评论和回复。
 
@@ -98,7 +105,7 @@ connection = sqlite3.connect('{}.db'.format(timeframe))
 c = connection.cursor()
 ```
 
-`timeframe`值将成为我们将要使用的数据的年份和月份。 你也可以把它列在这里，然后如果你喜欢，可以遍历它们。 现在，我将只用 2015 年 5 月的文件。 接下来，我们有`sql_transaction`。 所以在 SQL 中的“提交”是更昂贵的操作。 如果你知道你将要插入数百万行，你也应该知道你*真的*不应该一一提交。 相反，您只需在单个事务中构建语句，然后执行全部操作，然后提交。 接下来，我们要创建我们的表。 使用 SQLite，如果数据库尚不存在，连接时会创建数据库。
+`timeframe`值将成为我们将要使用的数据的年份和月份。 你也可以把它列在这里，然后如果你喜欢，可以遍历它们。 现在，我将只用 2015 年 5 月的文件。 接下来，我们有`sql_transaction`。 所以在 SQL 中的“提交”是更昂贵的操作。 如果你知道你将要插入数百万行，你也应该知道你*真的*不应该一一提交。 相反，你只需在单个事务中构建语句，然后执行全部操作，然后提交。 接下来，我们要创建我们的表。 使用 SQLite，如果数据库尚不存在，连接时会创建数据库。
 
 ```py
 def create_table():
@@ -139,7 +146,7 @@ if __name__ == '__main__':
 
 ## 三、缓冲数据
 
-您好，欢迎阅读 Python TensorFlow 聊天机器人系列教程的第 3 部分。 在上一篇教程中，我们讨论了数据的结构并创建了一个数据库来存放我们的数据。 现在我们准备好开始处理数据了！
+你好，欢迎阅读 Python TensorFlow 聊天机器人系列教程的第 3 部分。 在上一篇教程中，我们讨论了数据的结构并创建了一个数据库来存放我们的数据。 现在我们准备好开始处理数据了！
 
 目前为止的代码：
 
@@ -432,7 +439,7 @@ if __name__ == '__main__':
                 existing_comment_score = find_existing_score(parent_id)
 ```
 
-现在，如果有现有的评论分数，这意味着已经存在一个评论，所以这需要更新语句。 如果您还不知道 SQL，那么您可能需要阅读 SQLite 教程。 所以我们的逻辑最初是：
+现在，如果有现有的评论分数，这意味着已经存在一个评论，所以这需要更新语句。 如果你还不知道 SQL，那么你可能需要阅读 SQLite 教程。 所以我们的逻辑最初是：
 
 ```py
             if score >= 2:
@@ -676,7 +683,7 @@ Total Rows Read: 500000, Paired Rows: 25643, Time: 2017-11-14 15:16:02.045075
 
 ```
 
-它在另一个计数器之下。这需要新的`cleanup`变量，它规定了“清理”之前的多少航。这将消除我们的数据库膨胀，并使插入速度保持相当高。每个“清理”似乎移除 2K 对，几乎无论你放在哪里。如果每 100K 行一次，那么每 100K 行去掉 2K 对。我选择 100 万。另一个选项是每 100 万行清理一次，但不清理最后一百万行，而是清理最后 110 万行到第 100 万行，因为看起来这些 2K 对在最后的 100K 中。即使这样做，你仍然会失去一些偶对。我觉得每 100 万行中，100K 对中的 2K 对并不重要。我还添加了一个`start_row`变量，所以我可以在尝试提高速度的同时，启动和停止数据库插入。 `c.execute("VACUUM")`是一个 SQL 命令，用于将数据库的大小缩小到应该的值。实际上这可能不是必需的，您可能只想在最后完成此操作。我没有测试这个操作需要多长时间。我是这样做的，所以我可以在删除后立即看到数据库的大小。
+它在另一个计数器之下。这需要新的`cleanup`变量，它规定了“清理”之前的多少航。这将消除我们的数据库膨胀，并使插入速度保持相当高。每个“清理”似乎移除 2K 对，几乎无论你放在哪里。如果每 100K 行一次，那么每 100K 行去掉 2K 对。我选择 100 万。另一个选项是每 100 万行清理一次，但不清理最后一百万行，而是清理最后 110 万行到第 100 万行，因为看起来这些 2K 对在最后的 100K 中。即使这样做，你仍然会失去一些偶对。我觉得每 100 万行中，100K 对中的 2K 对并不重要。我还添加了一个`start_row`变量，所以我可以在尝试提高速度的同时，启动和停止数据库插入。 `c.execute("VACUUM")`是一个 SQL 命令，用于将数据库的大小缩小到应该的值。实际上这可能不是必需的，你可能只想在最后完成此操作。我没有测试这个操作需要多长时间。我是这样做的，所以我可以在删除后立即看到数据库的大小。
 
 完整代码是：
 
@@ -843,7 +850,7 @@ timeframes = ['2015-05']
 for timeframe in timeframes:
 ```
 
-对于这里的运行，我只在单个月上运行，只创建了一个数据库，但是您可能想创建一个数据库，里面的表是月份和年份，或者您可以创建一堆 sqlite 数据库 ，表类似于我们这些，然后遍历它们来创建你的文件。 无论如何，我只有一个，所以我会把`timeframes `作为一个单一的项目列表。 让我们继续构建这个循环：
+对于这里的运行，我只在单个月上运行，只创建了一个数据库，但是你可能想创建一个数据库，里面的表是月份和年份，或者你可以创建一堆 sqlite 数据库 ，表类似于我们这些，然后遍历它们来创建你的文件。 无论如何，我只有一个，所以我会把`timeframes `作为一个单一的项目列表。 让我们继续构建这个循环：
 
 ```py
 for timeframe in timeframes:
@@ -959,13 +966,13 @@ for timeframe in timeframes:
 
 欢迎阅读 Python TensorFlow 聊天机器人系列教程的第 7 部分。 在这里，我们将讨论我们的模型。 你可以提出和使用无数的模型，或在网上找到并适配你的需求。 我的主要兴趣是 Seq2Seq 模型，因为 Seq2Seq 可以用于聊天机器人，当然也可以用于其他东西。 基本上，生活中的所有东西都可以简化为序列到序列的映射，所以我们可以训练相当多的东西。 但是对于现在：我想要一个聊天机器人。
 
-当我开始寻找聊天机器人的时候，我偶然发现了原来的 TensorFlow  seq2seq 翻译教程，它把专注于英语到法语的翻译上，并做了能用的工作。不幸的是，由于 seq2seq 的一些变化，现在这个模型已经被弃用了。有一个传统的 seq2seq，你可以在最新的 TensorFlow 中使用，但我从来没有让它有效。相反，如果你想使用这个模型，你可能需要降级 TF（`pip install tensorflow-gpu==1.0.0`）。或者，您可以使用 TensorFlow 中最新，最好的 seq2seq 查看最新的神经机器翻译（NMT）模型。最新的 NMT 教程和来自 TensorFlow 的代码可以在这里找到：[神经机器翻译（seq2seq）教程](https://github.com/tensorflow/nmt)。
+当我开始寻找聊天机器人的时候，我偶然发现了原来的 TensorFlow  seq2seq 翻译教程，它把专注于英语到法语的翻译上，并做了能用的工作。不幸的是，由于 seq2seq 的一些变化，现在这个模型已经被弃用了。有一个传统的 seq2seq，你可以在最新的 TensorFlow 中使用，但我从来没有让它有效。相反，如果你想使用这个模型，你可能需要降级 TF（`pip install tensorflow-gpu==1.0.0`）。或者，你可以使用 TensorFlow 中最新，最好的 seq2seq 查看最新的神经机器翻译（NMT）模型。最新的 NMT 教程和来自 TensorFlow 的代码可以在这里找到：[神经机器翻译（seq2seq）教程](https://github.com/tensorflow/nmt)。
 
 我们打算使用一个项目，我一直与我的朋友丹尼尔合作来从事它。
 
 该项目的位置是：[NMT 机器人](https://github.com/daniel-kukiela/nmt-chatbot)，它是构建在 [TensorFlow 的 NMT 代码](https://github.com/tensorflow/nmt)之上的一组工具。
 
-该项目可能会发生变化，因此您应该检查 README，在撰写本文时，该文件写了：
+该项目可能会发生变化，因此你应该检查 README，在撰写本文时，该文件写了：
 
 ```
 $ git clone --recursive https://github.com/daniel-kukiela/nmt-chatbot
@@ -1015,7 +1022,7 @@ hparams = {
 }
 ```
 
-我手动降低了学习率，因为 Adam  真的不需要逐渐衰减（亚当的`ada`代表自适应，`m`是时刻，所以`adam`就是自适应时刻）。 我以 0.001 开始，然后减半到 0.0005，然后 0.00025，然后 0.0001。 根据您拥有的数据量，您不希望在每个设定的步骤上衰减。 当使用 Adam 时，我会建议每 1-2 个迭代衰减一次。 默认的批量大小是 128，因此如果您想要将其设置为自动衰减，则可以计算出您的迭代的迭代步数。 如果您使用 SGD 优化器，那么注释掉衰减因子没有问题，并且您可能希望学习率从 1 开始。
+我手动降低了学习率，因为 Adam  真的不需要逐渐衰减（亚当的`ada`代表自适应，`m`是时刻，所以`adam`就是自适应时刻）。 我以 0.001 开始，然后减半到 0.0005，然后 0.00025，然后 0.0001。 根据你拥有的数据量，你不希望在每个设定的步骤上衰减。 当使用 Adam 时，我会建议每 1-2 个迭代衰减一次。 默认的批量大小是 128，因此如果你想要将其设置为自动衰减，则可以计算出你的迭代的迭代步数。 如果你使用 SGD 优化器，那么注释掉衰减因子没有问题，并且你可能希望学习率从 1 开始。
 
 一旦你完成了所有的设置，在主目录（`utils`，`tests`和`setup`目录）中，把你的`train.to`和`train.from`以及匹配的`tst2012`和`tst2013`文件放到`new_data`目录中。 现在`cd setup `来运行`prepare_data.py`文件：
 
@@ -1035,7 +1042,7 @@ $ python3 train.py
 
 欢迎阅读 Python TensorFlow 聊天机器人系列教程的第 8 部分。在这里，我们将讨论我们的模型。
 
-对你来说，最主要的区别就是分桶（bucketing），填充（padding） 和更多的注意机制。在我们开始之前，先简单地谈谈这些事情。首先，如果您熟悉神经网络，请考虑 seq2seq 之类的任务，其中序列长度不完全相同。我们可以在聊天机器人范围内考虑这一点，但也可以考虑其他领域。在聊天机器人的情况下，一个单词的语句可以产生 20 个单词的回复，而长的语句可以返回单个单词的回复，并且每个输入在字符，单词等方面不同于输出。单词本身将被分配任意或有意义的 ID（通过单词向量），但是我们如何处理可变长度？一个答案就是使所有的单词串都是 50 个单词（例如）。然后，当语句长度为 35 个单词时，我们可以填充另外 15 个单词。超过 50 个单词的任何数据，我们可以不用于训练或截断。
+对你来说，最主要的区别就是分桶（bucketing），填充（padding） 和更多的注意机制。在我们开始之前，先简单地谈谈这些事情。首先，如果你熟悉神经网络，请考虑 seq2seq 之类的任务，其中序列长度不完全相同。我们可以在聊天机器人范围内考虑这一点，但也可以考虑其他领域。在聊天机器人的情况下，一个单词的语句可以产生 20 个单词的回复，而长的语句可以返回单个单词的回复，并且每个输入在字符，单词等方面不同于输出。单词本身将被分配任意或有意义的 ID（通过单词向量），但是我们如何处理可变长度？一个答案就是使所有的单词串都是 50 个单词（例如）。然后，当语句长度为 35 个单词时，我们可以填充另外 15 个单词。超过 50 个单词的任何数据，我们可以不用于训练或截断。
 
 不幸的是，这可能会让训练变得困难，特别是对于可能最为常见的较短回复，并且大多数单词/标记只是填充。原始的 seq2seq（英语到法语）的例子使用分桶来解决这个问题，并用 4 个桶训练。 5-10，10-15，20-25 和 40-50，我们最终将训练数据放入适合输入和输出的最小桶中，但这不是很理想。
 
@@ -1069,3 +1076,125 @@ BLEU代表“双语评估替代”，它可能是我们确定翻译算法总体�
 
 好的，在下一个教程中，我们将讨论如何开始与聊天机器人进行交互。
 
+## 九、与聊天机器人交互
+
+欢迎阅读 Python Tensorflow 和深度学习聊天机器人系列教程的第 9 部分。 在本教程中，我们将讨论如何与我们的模型进行交互，甚至可能将其推入生产环境。
+
+在训练你的模型时，默认情况下每 1,000 步将保存一个检查点文件。 如果你需要或想要停止你的训练，你可以安全地这样做，并选择最近的检查点的备份。 每个检查点的保存数据包含各种日志记录参数，还包括模型的完整权重/偏差等。 这意味着你可以选取这些检查点/模型文件，并使用它们继续训练或在生产中使用它们。
+
+检查点默认保存在模型目录中。 你应该看到名为`translate.ckpt-XXXXX`的文件，其中`X`对应于步骤序号。 你应该有`.data`，`.index`和一个`.meta`文件，以及检查点文件。 如果你打开检查点文件，你会看到它看起来像：
+
+```
+model_checkpoint_path: "/home/paperspace/Desktop/nmt-chatbot/model/translate.ckpt-225000"
+all_model_checkpoint_paths: "/home/paperspace/Desktop/nmt-chatbot/model/translate.ckpt-221000"
+all_model_checkpoint_paths: "/home/paperspace/Desktop/nmt-chatbot/model/translate.ckpt-222000"
+all_model_checkpoint_paths: "/home/paperspace/Desktop/nmt-chatbot/model/translate.ckpt-223000"
+all_model_checkpoint_paths: "/home/paperspace/Desktop/nmt-chatbot/model/translate.ckpt-224000"
+all_model_checkpoint_paths: "/home/paperspace/Desktop/nmt-chatbot/model/translate.ckpt-225000"
+
+```
+
+这仅仅让你的模型知道使用哪些文件。 如果你想使用一个特定的，较老的模型，你可以编辑它。
+
+因此，为了加载模型，我们需要 4 个文件。 假设我们的步骤是 22.5 万。 这意味着我们需要以下内容来运行我们的模型，或者加载它来继续训练：
+
+```
+checkpoint
+translate.ckpt-225000.meta
+translate.ckpt-225000.index
+translate.ckpt-225000.data-00000-of-00001
+```
+
+因此，如果你转移到云中的某台计算机上，无论是用于训练还是生产，这些都是你需要的文件。
+
+除了每隔 1000 步保存检查点外，我们还会做一些更多的示例（来自我们的`tst.to`和`tst.from`文件）。 这些数据每千步输出一次，并进入模型目录以及`output_dev`和`output_test`。 你可以使用这些文件查看每隔 1000 个步骤在控制台中完成的单个示例。 这些输出文件纯粹是测试文件的，顶级输出语句的结果响应。 既然你可以在你的测试文件中添加你想要的任何示例，那么这是你可以与聊天机器人进行交互的第一种方式，或者至少可以看到交互。 我写了一个简单的配对脚本，来输出测试文件和输出文件的评论响应偶对。
+
+例如，假设你已经有了你的`tst2013.from`文件：
+
+```
+Aren ' t they streaming it for free online ... ?
+try to get loud please
+I ' m trying to eat a fajita here
+E
+It ' s been 3 innings and Spanton almost hit a dong .
+Looks - wise yes , play - wise no
+But we ' d both pay $ 9 . 9 9 to see that . newlinechar newlinechar Isn ' t he doing stuff for CZW ? Aren ' t they like extreme stuff , they should do a Punjabi Prison Match with CJ Parker .
+' I simply feel as though the game is not for me . ' * Zaffre states , turning back to Ambrose , a frown on his face . *
+The fire escape is there . You hear wood splintering , and look to see that a raptor has managed to break a hole in the top of the door , just above the dresser . Its head pokes through , then disappears . There ' s another thud , and the dresser moves forward a few inches .
+[ ] ( / fritteehee ) I wonder how I ' ll make the eyes all red ...
+3 6 0 , 6 7 8
+I like the idea ... have an upvote !
+who talks trash about Giannis ?
+C
+I ' m pretty sure that ' s the peace music .
+Did well on my quiz today , am now eating ice cream . Good day .
+```
+
+之后是你的`output_dev`文件：
+
+```
+Yes they are .
+I don ' t think I ' ve ever heard of this . I ' ll have to check it out .
+<unk>
+R
+It ' s been a while since I ' ve seen it , but it ' s been a while since I ' ve seen it .
+I don ' t think I ' ve ever played - wise .
+I don ' t think he ' s doing anything for <unk> . I ' m sure he ' ll be fine .
+' I don ' t feel as though the game is for me . '
+That ' s what I was thinking as well .
+[ ] ( / <unk> ) I don ' t know .
+3 6 0 , 6 7 9
+Thank you !
+I don ' t think that ' s what he ' s talking about .
+K
+You ' re right , it ' s the peace music .
+Good day .
+```
+
+我们可以手动前后移动，但这可能很乏味，所以我已经做了一个快速配对脚本：
+
+```py
+output_file_location = 'output_dev'
+tst_file_location = 'tst2013.from'
+
+if __name__ == '__main__':
+    with open(output_file_location,"r") as f:
+        content = f.read()
+        to_data = content.split('\n')
+
+    with open(tst_file_location,"r") as f:
+        content = f.read()
+        from_data = content.split('\n')
+
+    for n, _ in enumerate(to_data[:-1]):
+        print(30*'_')
+        print('>',from_data[n])
+        print()
+        print('Reply:',to_data[n])
+```
+
+输出应该是：
+
+```
+> Aren ' t they streaming it for free online ... ?
+
+Reply: Yes they are .
+```
+
+接下来，你可能希望实际与你的机器人通信，这是推理脚本的用途。
+
+如果你运行这个，你可以和你的机器人交互，提出问题。在写这篇文章的时候，我们仍然在修改评分结果和调整内容。你可能对这里的结果感到满意，或者你可能想用你自己的方法来选择“正确”的答案。举个例子，到目前为止，我训练过的聊天机器人有问题，例如只是重复问题，或者有时在回复完成之前没有完成一个想法。而且，如果机器人遇到不属于他们词汇表的词语，则会产生 UNK 标记，所以我们可能不想要这些标记。
+
+如果你想从推理脚本获得 10 个以上合理的输出结果，你可以将`beam_widt`h和`num_translations_per_input`从 10 增加到 30，或者如果你喜欢，可以增加更多。
+
+如果你想在 Twitter 上实现类似于 Charles AI 的东西，那么你可以稍微修改这个推理脚本。例如，我打开这个脚本，然后，在`True`循环内，我检查数据库是否有任何新的社交媒体输入。如果还没有任何回应，我使用该模型创建一个回应并将其存储到数据库中。然后使用 Twitter/Twitch/Reddit API，我实际上会产生一个回应。
+
+你还需要“挑选”一个回应。你可以用机器人的第一个回应，但是由于光束 beam search，你可以看到不少的选择，不妨使用它们！如果你运行推理，你会看到有很多输出：
+
+![](https://pythonprogramming.net/static/images/machine-learning/chatbot-inference-output.png)
+
+每个聊天机器人可能会有所不同，但如前所述，我们在这里可能经常会看到许多输出问题。例如，`<UNK>`标记看起来比较丑陋和不友好，也是我的机器人经常喜欢重复问题或没有完成的想法，因此我们可能会使用一个小型自然语言处理，试图挑最好的答案，我们 可以。 在写这篇文章的时候，我已经写了一个评分脚本，用来评价 Daniel 所做的评分，你可以在`sentdex_lab`目录中找到它。 基本上，如果你想使用它们，这里的所有文件都需要放在根目录中。 如果你这样做，你可以按照你的喜好调整`scoring.py`。 然后，你可以运行`modded-inference.py`，并获得单个最高分结果，例如：
+
+![](https://pythonprogramming.net/static/images/machine-learning/scored-chatbot-inference.png)
+
+好吧，现在已经够了。 这个时候，你需要做很多调整，然后和它玩玩。 我仍然在讨论各种模型的大小，希望通过更好的方法来表达数据，从而使输出的词汇量可能更大。 我也有兴趣选取一个通用的模型，传入主要是讽刺的数据，看看我是否可以使用迁移学习，实现一个“有态度的查尔斯”类型的机器人，但我们会看看。
