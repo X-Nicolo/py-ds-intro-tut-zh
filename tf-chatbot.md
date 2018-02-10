@@ -136,3 +136,221 @@ if __name__ == '__main__':
 ```
 
 一旦我们建立完成，我们就可以开始遍历我们的数据文件并存储这些信息。 我们将在下一个教程中开始这样做！
+
+## 三、缓冲数据
+
+您好，欢迎阅读 Python TensorFlow 聊天机器人系列教程的第 3 部分。 在上一篇教程中，我们讨论了数据的结构并创建了一个数据库来存放我们的数据。 现在我们准备好开始处理数据了！
+
+目前为止的代码：
+
+```py
+import sqlite3
+import json
+from datetime import datetime
+
+timeframe = '2015-05'
+sql_transaction = []
+
+connection = sqlite3.connect('{}.db'.format(timeframe))
+c = connection.cursor()
+
+def create_table():
+    c.execute("CREATE TABLE IF NOT EXISTS parent_reply(parent_id TEXT PRIMARY KEY, comment_id TEXT UNIQUE, parent TEXT, comment TEXT, subreddit TEXT, unix INT, score INT)")
+
+if __name__ == '__main__':
+    create_table()
+```
+
+现在，让我们开始缓冲数据。 我们还将启动一些跟踪时间进度的计数器：
+
+```py
+if __name__ == '__main__':
+    create_table()
+    row_counter = 0
+    paired_rows = 0
+
+    with open('J:/chatdata/reddit_data/{}/RC_{}'.format(timeframe.split('-')[0],timeframe), buffering=1000) as f:
+        for row in f:
+```
+
+`row_counter`会不时输出，让我们知道我们在迭代的文件中走了多远，然后`paired_rows`会告诉我们有多少行数据是成对的（意味着我们有成对的评论和回复，这是训练数据）。 请注意，当然，你的数据文件的实际路径将与我的路径不同。
+
+接下来，由于文件太大，我们无法在内存中处理，所以我们将使用`buffering`参数，所以我们可以轻松地以小块读取文件，这很好，因为我们需要关心的所有东西是一次一行。
+
+现在，我们需要读取`json`格式这一行：
+
+```py
+if __name__ == '__main__':
+    create_table()
+    row_counter = 0
+    paired_rows = 0
+
+    with open('J:/chatdata/reddit_data/{}/RC_{}'.format(timeframe.split('-')[0],timeframe), buffering=1000) as f:
+        for row in f:
+            row_counter += 1
+            row = json.loads(row)
+            parent_id = row['parent_id']
+            body = format_data(row['body'])
+            created_utc = row['created_utc']
+            score = row['score']
+            comment_id = row['name']
+            subreddit = row['subreddit']
+```
+
+请注意`format_data`函数调用，让我们创建：
+
+```py
+def format_data(data):
+    data = data.replace('\n',' newlinechar ').replace('\r',' newlinechar ').replace('"',"'")
+    return data
+```
+
+我们将引入这个来规范平凡并将换行符转换为一个单词。
+
+我们可以使用`json.loads()`将数据读取到 python 对象中，这只需要`json`对象格式的字符串。 如前所述，所有评论最初都没有父级，也就是因为它是顶级评论（父级是 reddit 帖子本身），或者是因为父级不在我们的文档中。 然而，在我们浏览文档时，我们会发现那些评论，父级确实在我们数据库中。 发生这种情况时，我们希望将此评论添加到现有的父级。 一旦我们浏览了一个文件或者一个文件列表，我们就会输出数据库并作为训练数据，训练我们的模型，最后有一个我们可以聊天的朋友！ 所以，在我们把数据输入到数据库之前，我们应该看看能否先找到父级！
+
+```py
+            parent_data = find_parent(parent_id)
+```
+
+现在我们需要寻找`find_parent`函数：
+
+```py
+def find_parent(pid):
+    try:
+        sql = "SELECT comment FROM parent_reply WHERE comment_id = '{}' LIMIT 1".format(pid)
+        c.execute(sql)
+        result = c.fetchone()
+        if result != None:
+            return result[0]
+        else: return False
+    except Exception as e:
+        #print(str(e))
+        return False
+```
+
+有可能存在实现他的更有效的方法，但是这样管用。 所以，如果我们的数据库中存在`comment_id`匹配另一个评论的`parent_id`，那么我们应该将这个新评论与我们已经有的父评论匹配。 在下一个教程中，我们将开始构建确定是否插入数据所需的逻辑以及方式。
+
+## 四、插入逻辑
+
+欢迎阅读 Python TensorFlow 聊天机器人系列教程的第 4 部分。 目前为止，我们已经获得了我们的数据，并开始遍历。 现在我们准备开始构建用于输入数据的实际逻辑。
+
+首先，我想对*全部*评论加以限制，不管是否有其他评论，那就是我们只想处理毫无意义的评论。 基于这个原因，我想说我们只想考虑两票或以上的评论。 目前为止的代码：
+
+```py
+import sqlite3
+import json
+from datetime import datetime
+
+timeframe = '2015-05'
+sql_transaction = []
+
+connection = sqlite3.connect('{}.db'.format(timeframe))
+c = connection.cursor()
+
+def create_table():
+    c.execute("CREATE TABLE IF NOT EXISTS parent_reply(parent_id TEXT PRIMARY KEY, comment_id TEXT UNIQUE, parent TEXT, comment TEXT, subreddit TEXT, unix INT, score INT)")
+
+def format_data(data):
+    data = data.replace('\n',' newlinechar ').replace('\r',' newlinechar ').replace('"',"'")
+    return data
+
+def find_parent(pid):
+    try:
+        sql = "SELECT comment FROM parent_reply WHERE comment_id = '{}' LIMIT 1".format(pid)
+        c.execute(sql)
+        result = c.fetchone()
+        if result != None:
+            return result[0]
+        else: return False
+    except Exception as e:
+        #print(str(e))
+        return False
+
+
+if __name__ == '__main__':
+    create_table()
+    row_counter = 0
+    paired_rows = 0
+
+    with open('J:/chatdata/reddit_data/{}/RC_{}'.format(timeframe.split('-')[0],timeframe), buffering=1000) as f:
+        for row in f:
+            row_counter += 1
+            row = json.loads(row)
+            parent_id = row['parent_id']
+            body = format_data(row['body'])
+            created_utc = row['created_utc']
+            score = row['score']
+            comment_id = row['name']
+            subreddit = row['subreddit']
+            parent_data = find_parent(parent_id)
+```
+
+现在让我们要求票数是两个或更多，然后让我们看看是否已经有了父级的回复，以及票数是多少：
+
+```py
+if __name__ == '__main__':
+    create_table()
+    row_counter = 0
+    paired_rows = 0
+
+    with open('J:/chatdata/reddit_data/{}/RC_{}'.format(timeframe.split('-')[0],timeframe), buffering=1000) as f:
+        for row in f:
+            row_counter += 1
+            row = json.loads(row)
+            parent_id = row['parent_id']
+            body = format_data(row['body'])
+            created_utc = row['created_utc']
+            score = row['score']
+            comment_id = row['name']
+            subreddit = row['subreddit']
+            parent_data = find_parent(parent_id)
+            # maybe check for a child, if child, is our new score superior? If so, replace. If not...
+
+            if score >= 2:
+                existing_comment_score = find_existing_score(parent_id)
+```
+
+现在我们需要创建`find_existing_score`函数：
+
+```py
+def find_existing_score(pid):
+    try:
+        sql = "SELECT score FROM parent_reply WHERE parent_id = '{}' LIMIT 1".format(pid)
+        c.execute(sql)
+        result = c.fetchone()
+        if result != None:
+            return result[0]
+        else: return False
+    except Exception as e:
+        #print(str(e))
+        return False
+```
+
+如果有现有评论，并且我们的分数高于现有评论的分数，我们想替换它：
+
+```py
+            if score >= 2:
+                existing_comment_score = find_existing_score(parent_id)
+                if existing_comment_score:
+                    if score > existing_comment_score:
+```
+
+接下来，很多评论都被删除，但也有一些评论非常长，或者很短。 我们希望确保评论的长度适合于训练，并且评论未被删除：
+
+```py
+def acceptable(data):
+    if len(data.split(' ')) > 50 or len(data) < 1:
+        return False
+    elif len(data) > 1000:
+        return False
+    elif data == '[deleted]':
+        return False
+    elif data == '[removed]':
+        return False
+    else:
+        return True
+```
+
+好了，到了这里，我们已经准备好开始插入数据了，这就是我们将在下一个教程中做的事情。
+
