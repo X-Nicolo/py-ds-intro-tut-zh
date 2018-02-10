@@ -827,3 +827,198 @@ if __name__ == '__main__':
                 
 ```
 
+## 六、训练数据集
+
+欢迎阅读 Python TensorFlow 聊天机器人系列教程的第 6 部分。 在这一部分，我们将着手创建我们的训练数据。 在本系列中，我正在考虑使用两种不同的整体模型和工作流程：我所知的一个方法（在开始时展示并在 Twitch 流上实时运行），另一个可能会更好，但我仍在探索它。 无论哪种方式，我们的训练数据设置都比较相似。 我们需要创建文件，基本上是“父级”和“回复”文本，每一行都是一个样本。 因此，父级文件中的第15行是父评论，然后在回复文件中的第 15 行是父文件中第 15 行的回复。
+
+要创建这些文件，我们只需要从数据库中获取偶对，然后将它们附加到相应的训练文件中。 让我们以这个开始：
+
+```py
+import sqlite3
+import pandas as pd
+
+timeframes = ['2015-05']
+
+
+for timeframe in timeframes:
+```
+
+对于这里的运行，我只在单个月上运行，只创建了一个数据库，但是您可能想创建一个数据库，里面的表是月份和年份，或者您可以创建一堆 sqlite 数据库 ，表类似于我们这些，然后遍历它们来创建你的文件。 无论如何，我只有一个，所以我会把`timeframes `作为一个单一的项目列表。 让我们继续构建这个循环：
+
+```py
+for timeframe in timeframes:
+    connection = sqlite3.connect('{}.db'.format(timeframe))
+    c = connection.cursor()
+    limit = 5000
+    last_unix = 0
+    cur_length = limit
+    counter = 0
+    test_done = False
+```
+
+第一行只是建立连接，然后我们定义游标，然后是`limit`。 限制是我们要从数据库中一次抽取的块的大小。 同样，我们正在处理的数据比我们拥有的RAM大得多。 我们现在要将限制设为 5000，所以我们可以有一些测试数据。 我们可以稍后产生。 我们将使用`last_unix`来帮助我们从数据库中提取数据，`cur_length`会告诉我们什么时候我们完成了，`counter`会允许我们显示一些调试信息，而`test_done`用于我们完成构建测试数据的时候。
+
+```py
+    while cur_length == limit:
+
+        df = pd.read_sql("SELECT * FROM parent_reply WHERE unix > {} and parent NOT NULL and score > 0 ORDER BY unix ASC LIMIT {}".format(last_unix,limit),connection)
+        last_unix = df.tail(1)['unix'].values[0]
+        cur_length = len(df)
+
+```
+
+只要`cur_length`与我们的限制相同，我们就仍然有更多的工作要做。 然后，我们将从数据库中提取数据并将其转换为数据帧。 目前，我们对数据帧没有做太多的工作，但是之后我们可以用它对我们想要考虑的数据类型设置更多限制。 我们存储了`last_unix`，所以我们知道之后提取什么时候的。 我们也注意到回报的长度。 现在，建立我们的训练/测试文件。 我们将从测试开始：
+
+```py
+        if not test_done:
+            with open('test.from','a', encoding='utf8') as f:
+                for content in df['parent'].values:
+                    f.write(content+'\n')
+
+            with open('test.to','a', encoding='utf8') as f:
+                for content in df['comment'].values:
+                    f.write(str(content)+'\n')
+
+            test_done = True
+```
+
+现在，如果你希望，你也可以在这个时候提高限制。 在`test_done = True`之后，你也可以重新将`limit`定义为 100K 之类的东西。 现在，我们来为训练编写代码：
+
+```py
+        else:
+            with open('train.from','a', encoding='utf8') as f:
+                for content in df['parent'].values:
+                    f.write(content+'\n')
+
+            with open('train.to','a', encoding='utf8') as f:
+                for content in df['comment'].values:
+                    f.write(str(content)+'\n')
+```
+
+我们可以通过把它做成一个函数，来使这个代码更简单更好，所以我们不会复制和粘贴基本相同的代码。 但是...相反...让我们继续：
+
+```py
+        counter += 1
+        if counter % 20 == 0:
+            print(counter*limit,'rows completed so far')
+```
+
+这里，我们每 20 步就会看到输出，所以如果我们将限制保持为 5,000，每 100K 步也是。
+
+目前的完整代码：
+
+```py
+import sqlite3
+import pandas as pd
+
+timeframes = ['2015-05']
+
+for timeframe in timeframes:
+    connection = sqlite3.connect('{}.db'.format(timeframe))
+    c = connection.cursor()
+    limit = 5000
+    last_unix = 0
+    cur_length = limit
+    counter = 0
+    test_done = False
+
+    while cur_length == limit:
+
+        df = pd.read_sql("SELECT * FROM parent_reply WHERE unix > {} and parent NOT NULL and score > 0 ORDER BY unix ASC LIMIT {}".format(last_unix,limit),connection)
+        last_unix = df.tail(1)['unix'].values[0]
+        cur_length = len(df)
+
+        if not test_done:
+            with open('test.from','a', encoding='utf8') as f:
+                for content in df['parent'].values:
+                    f.write(content+'\n')
+
+            with open('test.to','a', encoding='utf8') as f:
+                for content in df['comment'].values:
+                    f.write(str(content)+'\n')
+
+            test_done = True
+
+        else:
+            with open('train.from','a', encoding='utf8') as f:
+                for content in df['parent'].values:
+                    f.write(content+'\n')
+
+            with open('train.to','a', encoding='utf8') as f:
+                for content in df['comment'].values:
+                    f.write(str(content)+'\n')
+
+        counter += 1
+        if counter % 20 == 0:
+            print(counter*limit,'rows completed so far')
+```
+
+好的，运行它，当你准备好数据的时候，我就会看到。
+
+## 七、训练模型
+
+欢迎阅读 Python TensorFlow 聊天机器人系列教程的第 7 部分。 在这里，我们将讨论我们的模型。 你可以提出和使用无数的模型，或在网上找到并适配你的需求。 我的主要兴趣是 Seq2Seq 模型，因为 Seq2Seq 可以用于聊天机器人，当然也可以用于其他东西。 基本上，生活中的所有东西都可以简化为序列到序列的映射，所以我们可以训练相当多的东西。 但是对于现在：我想要一个聊天机器人。
+
+当我开始寻找聊天机器人的时候，我偶然发现了原来的 TensorFlow  seq2seq 翻译教程，它把专注于英语到法语的翻译上，并做了能用的工作。不幸的是，由于 seq2seq 的一些变化，现在这个模型已经被弃用了。有一个传统的 seq2seq，你可以在最新的 TensorFlow 中使用，但我从来没有让它有效。相反，如果你想使用这个模型，你可能需要降级 TF（`pip install tensorflow-gpu==1.0.0`）。或者，您可以使用 TensorFlow 中最新，最好的 seq2seq 查看最新的神经机器翻译（NMT）模型。最新的 NMT 教程和来自 TensorFlow 的代码可以在这里找到：[神经机器翻译（seq2seq）教程](https://github.com/tensorflow/nmt)。
+
+我们打算使用一个项目，我一直与我的朋友丹尼尔合作来从事它。
+
+该项目的位置是：[NMT 机器人](https://github.com/daniel-kukiela/nmt-chatbot)，它是构建在 [TensorFlow 的 NMT 代码](https://github.com/tensorflow/nmt)之上的一组工具。
+
+该项目可能会发生变化，因此您应该检查 README，在撰写本文时，该文件写了：
+
+```
+$ git clone --recursive https://github.com/daniel-kukiela/nmt-chatbot
+$ cd nmt-chatbot
+$ pip install -r requirements.txt
+$ cd setup
+(optional) edit settings.py to your liking. These are a decent starting point for ~4gb of VRAM, you should first start by trying to raise vocab if you can.
+(optional) Edit text files containing rules in setup directory
+Place training data inside "new_data" folder (train.(from|to), tst2012.(from|to)m tst2013(from|to)). We have provided some sample data for those who just want to do a quick test drive.
+$ python prepare_data.py ...Run setup/prepare_data.py - new folder called "data" will be created with prepared training data
+$ cd ../
+$ python train.py Begin training
+```
+
+所以让我们用它！我们将首先设置它，让它运行，然后我将解释你应该理解的主要概念。
+
+如果你需要更多的处理能力，用这个 10 美元的折扣来查看 Paperspace，这会给你足够的时间来获得一些像样的东西。我一直在使用它们，并且非常喜欢我能够快速启动“ML-in-a-Box”选项并立即训练模型。
+
+确保递归下载软件包，或者手动获取 nmt 软件包，或者从我们的仓库派生，或者从官方的 TensorFlow 源文件派生。我们的派生只是版本检查的一次更改，至少在那个时候，它需要非常特殊的 1.4.0 版本，而这实际上并不是必需的。这可能会在你那个时候被修复，但是我们也可能会对 NMT 核心代码做进一步的修改。
+
+一旦下载完成，编辑`setup/settings.py`。如果你真的不知道自己在做什么，那没关系，你不需要修改任何东西。预设设置将需要约 4GB 的 VRAM，但至少仍然应该产生不错的模型。 Charles v2 用以下设置训练，`'vocab_size': 100000`，（在脚本的前面设置）：
+
+```py
+hparams = {
+    'attention': 'scaled_luong',
+    'src': 'from',
+    'tgt': 'to',
+    'vocab_prefix': os.path.join(train_dir, "vocab"),
+    'train_prefix': os.path.join(train_dir, "train"),
+    'dev_prefix': os.path.join(train_dir, "tst2012"),
+    'test_prefix': os.path.join(train_dir, "tst2013"),
+    'out_dir': out_dir,
+    'num_train_steps': 500000,
+    'num_layers': 2,
+    'num_units': 512,
+    'override_loaded_hparams': True,
+    'learning_rate':0.001,
+#    'decay_factor': 0.99998,
+    'decay_steps': 1,
+#    'residual': True,
+    'start_decay_step': 1,
+    'beam_width': 10,
+    'length_penalty_weight': 1.0,
+    'optimizer': 'adam',
+    'encoder_type': 'bi',
+    'num_translations_per_input': 30
+}
+```
+
+我手动降低了学习率，因为 Adam  真的不需要逐渐衰减（亚当的`ada`代表自适应，`m`是时刻，所以`adam`就是自适应时刻）。 我以 0.001 开始，然后减半到 0.0005，然后 0.00025，然后 0.0001。 根据您拥有的数据量，您不希望在每个设定的步骤上衰减。 当使用 Adam 时，我会建议每 1-2 个迭代衰减一次。 默认的批量大小是 128，因此如果您想要将其设置为自动衰减，则可以计算出您的迭代的迭代步数。 如果您使用 SGD 优化器，那么注释掉衰减因子没有问题，并且您可能希望学习率从 1 开始。
+
+一旦你完成了所有的设置，在主目录（`utils`，`tests`和`setup`目录）中，把你的`train.to`和`train.from`以及匹配的`tst2012`和`tst2013`文件放到`new_data`目录中。 现在`cd setup `来运行`prepare_data.py`文件：
+
+```py
+$ python3 prepare_data.py
+```
